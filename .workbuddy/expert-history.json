@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "sessions": {
+    "061a26f21e7a421da144c3438f7ff0a9": [
+      {
+        "expertId": "XiaohongshuOperationsExpert",
+        "name": "Fay",
+        "profession": "小红书运营专家",
+        "avatarUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/avatars/03-Marketing/XiaohongshuOperationsExpert/XiaohongshuOperationsExpert.png",
+        "promptUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/experts/03-Marketing/XiaohongshuOperationsExpert/XiaohongshuOperationsExpert_zh.md",
+        "usedAt": 1774749412307,
+        "industryId": "all"
+      }
+    ]
+  },
+  "lastUpdated": 1774777426740
+}

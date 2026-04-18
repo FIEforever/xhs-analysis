@@ -1,0 +1,3656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小红书内容分析系统</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --red: #FF2442;
+      --red-light: #FF6B81;
+      --red-pale: #FFF0F2;
+      --red-dark: #CC0028;
+      --bg: #F9F9F9;
+      --card: #FFFFFF;
+      --text: #1A1A1A;
+      --text-sub: #666;
+      --text-mute: #999;
+      --border: #EFEFEF;
+      --shadow: 0 2px 16px rgba(0,0,0,0.07);
+      --shadow-hover: 0 6px 28px rgba(255,36,66,0.15);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ========= HEADER ========= */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+    }
+    .header-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--red);
+    }
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--red);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-icon svg { color: #fff; }
+    .header-sub { color: var(--text-sub); font-size: 13px; margin-left: auto; }
+
+    /* ========= MAIN LAYOUT ========= */
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 20px;
+    }
+
+    /* ========= SEARCH PANEL ========= */
+    .search-panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+    .panel-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-title::before {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 18px;
+      background: var(--red);
+      border-radius: 2px;
+    }
+    .search-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 13px;
+      color: var(--text-sub);
+      font-weight: 500;
+    }
+    .keyword-input-wrap {
+      flex: 1;
+      min-width: 280px;
+    }
+    .keyword-input-wrap input {
+      width: 100%;
+      height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 16px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .2s;
+      background: #fafafa;
+    }
+    .keyword-input-wrap input:focus { border-color: var(--red); background: #fff; }
+    .keyword-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .keyword-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--red-pale);
+      color: var(--red);
+      border: 1px solid #ffc8d0;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .keyword-tag:hover { background: var(--red); color: #fff; border-color: var(--red); }
+    .keyword-tag .remove { font-size: 15px; line-height: 1; margin-left: 2px; }
+
+    .time-group { min-width: 200px; }
+    .time-btns { display: flex; gap: 6px; }
+    .time-btn {
+      flex: 1;
+      height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #fafafa;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .time-btn:hover { border-color: var(--red); color: var(--red); background: var(--red-pale); }
+    .time-btn.active { border-color: var(--red); background: var(--red); color: #fff; }
+
+    .sort-group { min-width: 130px; }
+    .sort-select {
+      height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 12px;
+      font-size: 14px;
+      outline: none;
+      background: #fafafa;
+      cursor: pointer;
+      width: 100%;
+      transition: border-color .2s;
+    }
+    .sort-select:focus { border-color: var(--red); }
+
+    .count-group { min-width: 120px; }
+    .count-select {
+      height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 12px;
+      font-size: 14px;
+      outline: none;
+      background: #fafafa;
+      cursor: pointer;
+      width: 100%;
+      transition: border-color .2s;
+    }
+
+    .search-btn {
+      height: 44px;
+      padding: 0 32px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .search-btn:hover { background: var(--red-dark); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(255,36,66,.35); }
+    .search-btn:active { transform: none; }
+    .search-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    .mcp-status {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-mute);
+    }
+    .mcp-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+    .mcp-dot.online { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.2); }
+    .mcp-dot.offline { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.2); }
+    .mcp-btn {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--red);
+      background: none;
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      padding: 2px 8px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .mcp-btn:hover { background: var(--red); color: #fff; }
+
+    /* ========= STATS ROW ========= */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent, var(--red));
+    }
+    .stat-label { font-size: 12px; color: var(--text-mute); margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--text); }
+    .stat-unit { font-size: 13px; color: var(--text-sub); }
+    .stat-change { font-size: 12px; margin-top: 4px; color: #22c55e; }
+    .stat-change.neg { color: #ef4444; }
+
+    /* ========= CONTENT GRID ========= */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+    }
+    @media (max-width: 1100px) {
+      .content-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ========= VERTICAL LAYOUT: 数据分析在上，笔记列表在下 ========= */
+    .content-grid-vertical {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .analysis-panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .analysis-panel .sidebar-tabs {
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      box-shadow: none;
+      margin: 0;
+    }
+
+    /* ========= NOTE LIST ========= */
+    .notes-panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .notes-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .notes-title { font-size: 15px; font-weight: 600; }
+    .notes-actions { display: flex; gap: 8px; }
+    .icon-btn {
+      width: 32px; height: 32px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sub);
+      transition: all .15s;
+    }
+    .icon-btn:hover { border-color: var(--red); color: var(--red); }
+
+    .notes-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    .note-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      transition: all .2s;
+      cursor: pointer;
+      position: relative;
+    }
+    .note-card:hover { border-color: var(--red-light); box-shadow: 0 3px 12px rgba(255,36,66,.1); }
+    .note-card.highlight { border-color: var(--red); background: var(--red-pale); }
+
+    .note-top { display: flex; gap: 12px; align-items: flex-start; }
+    .note-rank {
+      min-width: 26px; height: 26px;
+      border-radius: 6px;
+      background: var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: var(--text-sub);
+    }
+    .note-rank.top1 { background: #FFD700; color: #7a5c00; }
+    .note-rank.top2 { background: #C0C0C0; color: #555; }
+    .note-rank.top3 { background: #CD7F32; color: #fff; }
+
+    /* 笔记封面图 */
+    .note-cover {
+      width: 100px;
+      height: 100px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .note-cover-placeholder {
+      width: 100px;
+      height: 100px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-mute);
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .note-body { flex: 1; min-width: 0; }
+    .note-title {
+      font-size: 14px; font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      display: block;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color .15s;
+    }
+    .note-title:hover { color: var(--red); }
+    .note-desc {
+      font-size: 12px; color: var(--text-sub);
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .note-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+    .meta-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2px 8px;
+      font-size: 11px; color: var(--text-sub);
+    }
+    .meta-chip svg { width: 10px; height: 10px; }
+    .meta-chip.likes { color: var(--red); border-color: #ffc8d0; background: var(--red-pale); }
+    .meta-chip.hot { color: #f97316; border-color: #fed7aa; background: #fff7ed; }
+
+    .note-author { font-size: 11px; color: var(--text-mute); margin-top: 6px; }
+    .note-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; color: var(--red); text-decoration: none;
+      margin-top: 6px;
+      transition: opacity .15s;
+    }
+    .note-link:hover { opacity: .75; text-decoration: underline; }
+    .note-link-icon { width: 12px; height: 12px; }
+
+    .badge {
+      position: absolute; top: 10px; right: 10px;
+      font-size: 10px; font-weight: 700; padding: 2px 7px;
+      border-radius: 20px; text-transform: uppercase;
+    }
+    .badge-hot { background: #fff0e6; color: #f97316; border: 1px solid #fed7aa; }
+    .badge-new { background: var(--red-pale); color: var(--red); border: 1px solid #ffc8d0; }
+
+    .notes-empty {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text-mute);
+    }
+    .notes-empty .empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    .notes-empty p { font-size: 14px; }
+
+    .loading-overlay {
+      padding: 60px 20px;
+      text-align: center;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .pagination { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; justify-content: center; }
+    .page-btn {
+      min-width: 32px; height: 32px; padding: 0 6px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      background: none; font-size: 13px; cursor: pointer; color: var(--text-sub);
+      transition: all .15s;
+    }
+    .page-btn:hover { border-color: var(--red); color: var(--red); }
+    .page-btn.active { background: var(--red); border-color: var(--red); color: #fff; }
+    .page-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ========= SIDEBAR ========= */
+    .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ========= SIDEBAR TABS ========= */
+    .sidebar-tabs {
+      display: flex;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 6px;
+      gap: 4px;
+    }
+    .stab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .stab-btn.active {
+      background: var(--red);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(255,36,66,0.3);
+    }
+    .stab-btn:hover:not(.active) { background: var(--red-pale); color: var(--red); }
+
+    /* ========= PRODUCT INSIGHT STYLES ========= */
+    .analysis-tip {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-mute);
+      font-weight: 400;
+    }
+    .placeholder-tip {
+      font-size: 12px;
+      color: var(--text-mute);
+      text-align: center;
+      padding: 16px 0;
+    }
+    .kw-rank-list { display: flex; flex-direction: column; gap: 6px; }
+    .kw-rank-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .kw-rank-no {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--text-mute);
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .kw-rank-no.top1 { background: #FF2442; color: #fff; }
+    .kw-rank-no.top2 { background: #f97316; color: #fff; }
+    .kw-rank-no.top3 { background: #f59e0b; color: #fff; }
+    .kw-rank-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .kw-rank-bar { height: 100%; border-radius: 3px; transition: width .4s ease; }
+    .kw-rank-word { min-width: 64px; font-weight: 500; color: var(--text); }
+    .kw-rank-count { font-size: 11px; color: var(--text-mute); min-width: 28px; text-align: right; }
+
+    .selling-tag-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+    .selling-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: default;
+    }
+    .selling-tag .stag-count {
+      background: rgba(255,255,255,0.4);
+      border-radius: 10px;
+      padding: 1px 5px;
+      font-size: 10px;
+    }
+
+    .scene-list { display: flex; flex-direction: column; gap: 4px; }
+    .scene-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text-sub);
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .scene-item:last-child { border-bottom: none; }
+    .scene-icon { font-size: 14px; flex-shrink: 0; }
+    .scene-text { flex: 1; }
+    .scene-freq {
+      font-size: 11px;
+      color: var(--text-mute);
+      background: var(--bg);
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+
+    /* 产品洞察简报 */
+    .product-report { font-size: 13px; line-height: 1.7; }
+    .report-section { margin-bottom: 14px; }
+    .report-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid var(--red);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .report-item {
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--bg);
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--text-sub);
+      line-height: 1.6;
+    }
+    .report-item strong { color: var(--text); }
+    .report-item.highlight {
+      background: var(--red-pale);
+      border-left: 3px solid var(--red);
+      color: #8b0018;
+    }
+    .report-item.success {
+      background: #f0fdf4;
+      border-left: 3px solid #22c55e;
+      color: #166534;
+    }
+    .report-item.warning {
+      background: #fff7ed;
+      border-left: 3px solid #f97316;
+      color: #9a3412;
+    }
+    .report-demand-list { display: flex; flex-direction: column; gap: 5px; }
+    .demand-quote {
+      background: #f8f4ff;
+      border-left: 3px solid #8b5cf6;
+      padding: 6px 10px;
+      border-radius: 0 8px 8px 0;
+      font-size: 12px;
+      color: #4c1d95;
+      font-style: italic;
+    }
+
+    /* ========= SENTIMENT STYLES ========= */
+    .sentiment-bar-wrap {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      height: 10px;
+      margin: 10px 0 14px;
+    }
+    .sentiment-seg { transition: width .5s ease; }
+    .sentiment-legend {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .sentiment-legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: var(--text-sub);
+    }
+    .sentiment-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .sentiment-pct { font-weight: 700; font-size: 14px; }
+    .sentiment-cards { display: flex; flex-direction: column; gap: 6px; }
+    .sentiment-card {
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .sentiment-card.pos { background: #f0fdf4; border-left: 3px solid #22c55e; color: #166534; }
+    .sentiment-card.neg { background: #fff1f2; border-left: 3px solid #f43f5e; color: #881337; }
+    .sentiment-card.neu { background: #f8fafc; border-left: 3px solid #94a3b8; color: #475569; }
+    .sentiment-card strong { display: block; margin-bottom: 3px; font-size: 11px; opacity: .8; }
+
+    /* ========= TOPIC CLUSTER STYLES ========= */
+    .topic-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .topic-card {
+      padding: 10px;
+      border-radius: 10px;
+      background: var(--bg);
+      border: 1.5px solid transparent;
+      cursor: default;
+      transition: border-color .15s;
+    }
+    .topic-card:hover { border-color: var(--red); }
+    .topic-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    .topic-name { font-size: 12px; font-weight: 700; color: var(--text); }
+    .topic-pct { font-size: 11px; color: var(--text-mute); }
+    .topic-bar { height: 4px; border-radius: 2px; margin-bottom: 6px; }
+    .topic-words { font-size: 11px; color: var(--text-mute); line-height: 1.4; }
+
+    /* ========= USER PORTRAIT STYLES ========= */
+    .portrait-section { margin-bottom: 12px; }
+    .portrait-label {
+      font-size: 11px; font-weight: 600; color: var(--text-mute);
+      text-transform: uppercase; letter-spacing: .05em;
+      margin-bottom: 6px;
+    }
+    .portrait-bars { display: flex; flex-direction: column; gap: 5px; }
+    .portrait-row {
+      display: flex; align-items: center; gap: 6px; font-size: 12px;
+    }
+    .portrait-row-label { min-width: 48px; color: var(--text-sub); font-size: 11px; }
+    .portrait-row-bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .portrait-row-bar { height: 100%; border-radius: 4px; transition: width .4s ease; }
+    .portrait-row-val { min-width: 32px; text-align: right; font-size: 11px; color: var(--text-mute); }
+
+    /* ========= DEMAND/PAIN STYLES ========= */
+    .demand-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .demand-col-title {
+      font-size: 11px; font-weight: 700; margin-bottom: 6px;
+      padding: 4px 8px; border-radius: 6px; text-align: center;
+    }
+    .demand-col-title.need { background: #dbeafe; color: #1e40af; }
+    .demand-col-title.pain { background: #ffe4e6; color: #9f1239; }
+    .demand-word-list { display: flex; flex-direction: column; gap: 4px; }
+    .demand-word-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text-sub);
+    }
+    .demand-word-item .dw-bar-wrap { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow:hidden; }
+    .demand-word-item .dw-bar { height: 100%; border-radius: 3px; }
+    .demand-word-item .dw-label { min-width: 44px; font-size: 11px; }
+    .demand-word-item .dw-count { font-size: 10px; color: var(--text-mute); min-width: 20px; text-align:right; }
+
+    /* ========= CACHE INDICATOR ========= */
+    .cache-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; color: #059669; background: #d1fae5;
+      padding: 2px 7px; border-radius: 10px;
+      font-weight: 500;
+    }
+    .cache-badge.expired { color: #b45309; background: #fef3c7; }
+
+    /* CACHE PANEL */
+    .cache-entry {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--bg);
+      margin-bottom: 6px;
+      border-left: 3px solid #22c55e;
+    }
+    .cache-entry.expired { border-left-color: #f59e0b; opacity: .7; }
+    .cache-entry-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .cache-kw { font-size: 12px; font-weight: 600; color: var(--text); }
+    .cache-entry-meta { font-size: 11px; color: var(--text-mute); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .cache-use-btn {
+      padding: 2px 8px; border-radius: 6px; border: 1px solid var(--red);
+      background: var(--red-pale); color: var(--red);
+      font-size: 11px; cursor: pointer;
+    }
+    .cache-use-btn:hover { background: var(--red); color: #fff; }
+
+    /* ========= SCENE ANALYSIS STYLES ========= */
+    .location-list { display: flex; flex-direction: column; gap: 6px; }
+    .location-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; background: var(--bg); border-radius: 8px;
+    }
+    .location-rank {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--red); color: #fff; font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .location-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+    .location-count { font-size: 11px; color: var(--text-mute); }
+    .exp-types { display: flex; flex-direction: column; gap: 8px; }
+    .exp-type-bar {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .exp-type-name { min-width: 70px; font-size: 12px; color: var(--text-sub); }
+    .exp-type-progress { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .exp-type-fill { height: 100%; background: linear-gradient(90deg, var(--red), var(--red-light)); border-radius: 4px; transition: width .4s ease; }
+    .exp-type-count { min-width: 40px; font-size: 11px; color: var(--text-mute); text-align: right; }
+
+    /* ========= COMPETITIVE ANALYSIS STYLES ========= */
+    .competitor-list { display: flex; flex-direction: column; gap: 6px; }
+    .competitor-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; background: var(--bg); border-radius: 8px;
+    }
+    .competitor-name { min-width: 60px; font-size: 12px; font-weight: 600; color: var(--text); }
+    .competitor-bar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .competitor-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 4px; transition: width .4s ease; }
+    .competitor-count { min-width: 40px; font-size: 11px; color: var(--text-mute); text-align: right; }
+    .brand-sentiment { display: flex; flex-direction: column; gap: 10px; }
+    .sentiment-stat {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; background: var(--bg); border-radius: 8px;
+    }
+    .sentiment-label { font-size: 12px; color: var(--text-sub); }
+    .sentiment-val { font-size: 13px; font-weight: 700; }
+    .sentiment-val.positive { color: #22c55e; }
+    .sentiment-val.negative { color: #f43f5e; }
+    .sentiment-val.good { color: #22c55e; }
+    .sentiment-val.avg { color: #f59e0b; }
+    .sentiment-val.poor { color: #f43f5e; }
+
+    .analysis-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .analysis-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .analysis-header-icon {
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+    }
+    .analysis-body { padding: 16px; }
+
+    /* Chart containers */
+    .chart-wrap {
+      position: relative;
+      height: 180px;
+    }
+    .chart-wrap-sm { height: 140px; }
+
+    /* Tag cloud */
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 7px; }
+    .tag-item {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      border: 1.5px solid transparent;
+    }
+    .tag-item:hover { opacity: .85; transform: scale(1.04); }
+
+    /* Engagement bar */
+    .eng-list { display: flex; flex-direction: column; gap: 10px; }
+    .eng-item { display: flex; flex-direction: column; gap: 4px; }
+    .eng-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sub); }
+    .eng-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+    .eng-fill { height: 100%; border-radius: 3px; transition: width .6s ease; }
+
+    /* Insight list */
+    .insight-list { display: flex; flex-direction: column; gap: 8px; }
+    .insight-item {
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px; line-height: 1.6;
+      border-left: 3px solid;
+    }
+    .insight-item.tip { border-color: var(--red); background: var(--red-pale); color: #8b0018; }
+    .insight-item.warn { border-color: #f97316; background: #fff7ed; color: #9a3412; }
+    .insight-item.info { border-color: #3b82f6; background: #eff6ff; color: #1e3a5f; }
+
+    /* Time dist */
+    .time-dist { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .td-item { text-align: center; }
+    .td-bar-wrap { height: 50px; display: flex; align-items: flex-end; justify-content: center; }
+    .td-bar { width: 20px; border-radius: 3px 3px 0 0; transition: height .6s ease; }
+    .td-label { font-size: 10px; color: var(--text-mute); margin-top: 4px; }
+    .td-val { font-size: 10px; color: var(--text-sub); font-weight: 600; }
+
+    /* Author rank */
+    .author-list { display: flex; flex-direction: column; gap: 8px; }
+    .author-item { display: flex; align-items: center; gap: 10px; }
+    .author-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--red-light), var(--red));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .author-name { font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .author-score { font-size: 12px; color: var(--text-sub); }
+    .author-score span { color: var(--red); font-weight: 700; }
+
+    /* ========= TABS ========= */
+    .tab-bar { display: flex; gap: 4px; padding: 12px 16px 0; }
+    .tab-btn {
+      padding: 6px 14px;
+      border-radius: 8px 8px 0 0;
+      border: none;
+      background: var(--bg);
+      font-size: 13px;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all .15s;
+      font-weight: 500;
+    }
+    .tab-btn.active { background: var(--card); color: var(--red); font-weight: 600; }
+
+    /* ========= EXPORT BAR ========= */
+    .export-bar {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .export-label { font-size: 13px; color: var(--text-sub); }
+    .export-btn {
+      padding: 6px 16px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: none;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text-sub);
+      transition: all .15s;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .export-btn:hover { border-color: var(--red); color: var(--red); background: var(--red-pale); }
+
+    /* ========= TOAST ========= */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 9999;
+    }
+    .toast {
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      background: #1a1a1a;
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,.2);
+      animation: slideIn .3s ease;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .toast.success { background: #166534; }
+    .toast.error { background: #991b1b; }
+    .toast.warning { background: #92400e; }
+    @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ========= MODAL ========= */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-box {
+      background: var(--card);
+      border-radius: var(--radius);
+      max-width: 520px; width: 100%;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .modal-body { font-size: 14px; color: var(--text-sub); line-height: 1.8; }
+    .modal-body code {
+      background: var(--bg); padding: 2px 6px; border-radius: 4px;
+      font-family: monospace; font-size: 13px; color: var(--red);
+    }
+    .modal-body pre {
+      background: #1a1a1a; color: #e2e8f0;
+      padding: 14px; border-radius: 10px; margin: 12px 0;
+      font-size: 12px; font-family: monospace; line-height: 1.6;
+      overflow-x: auto;
+    }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .modal-close {
+      padding: 8px 20px; border-radius: 8px;
+      border: 1.5px solid var(--border); background: none;
+      font-size: 13px; cursor: pointer; transition: all .15s;
+    }
+    .modal-close:hover { border-color: var(--red); color: var(--red); }
+    .modal-confirm {
+      padding: 8px 20px; border-radius: 8px;
+      background: var(--red); color: #fff; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+    }
+    .modal-confirm:hover { background: var(--red-dark); }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #bbb; }
+
+    /* CONFIG PANEL */
+    .config-panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 24px;
+      display: none;
+    }
+    .config-panel.show { display: block; }
+    .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 14px; }
+    .config-item { display: flex; flex-direction: column; gap: 6px; }
+    .config-item label { font-size: 12px; color: var(--text-sub); font-weight: 500; }
+    .config-item input {
+      height: 38px; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 0 12px; font-size: 13px; outline: none; width: 100%;
+      transition: border-color .2s; background: #fafafa;
+    }
+    .config-item input:focus { border-color: var(--red); background: #fff; }
+    .config-save { margin-top: 12px; }
+
+    /* NOTE DETAIL MODAL */
+    .detail-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .detail-modal-overlay.hidden { display: none; }
+    .detail-modal {
+      background: var(--card); border-radius: var(--radius);
+      max-width: 680px; width: 100%; max-height: 85vh; overflow-y: auto;
+      padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+    .detail-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+    .detail-title { font-size: 18px; font-weight: 700; flex: 1; margin-right: 16px; }
+    .detail-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-mute); }
+    .detail-stats { display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+    .detail-stat { text-align: center; }
+    .detail-stat-val { font-size: 20px; font-weight: 700; color: var(--red); }
+    .detail-stat-lbl { font-size: 11px; color: var(--text-mute); }
+    .detail-content { font-size: 14px; line-height: 1.8; color: var(--text-sub); margin-bottom: 16px; background: var(--bg); padding: 14px; border-radius: 10px; }
+    .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .detail-tag { padding: 3px 10px; background: var(--red-pale); color: var(--red); border-radius: 20px; font-size: 12px; }
+    .detail-link { display: inline-flex; align-items: center; gap: 6px; color: var(--red); font-size: 13px; text-decoration: none; }
+    .detail-link:hover { text-decoration: underline; }
+    .detail-analysis { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
+    .detail-analysis h4 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+    .analysis-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .am-item { padding: 10px; background: var(--bg); border-radius: 10px; }
+    .am-label { font-size: 11px; color: var(--text-mute); margin-bottom: 4px; }
+    .am-val { font-size: 16px; font-weight: 700; }
+    .am-val.good { color: #16a34a; }
+    .am-val.avg { color: #d97706; }
+    .am-val.poor { color: #dc2626; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
+      </div>
+      小红书内容分析系统
+    </div>
+    <span class="header-sub">数据驱动 · 精准运营 · 爆款打造</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- SEARCH PANEL -->
+  <div class="search-panel">
+    <div class="panel-title">搜索笔记数据</div>
+    <div class="search-row">
+      <div class="form-group keyword-input-wrap">
+        <label>关键词（支持多个，回车添加）</label>
+        <input type="text" id="keywordInput" placeholder="输入关键词，如：护肤、美食、旅行..." />
+        <div class="keyword-tags" id="keywordTags"></div>
+      </div>
+      <div class="form-group time-group">
+        <label>时间范围</label>
+        <div class="time-btns">
+          <button class="time-btn active" data-days="7">7天</button>
+          <button class="time-btn" data-days="30">30天</button>
+          <button class="time-btn" data-days="90">90天</button>
+        </div>
+      </div>
+      <div class="form-group sort-group">
+        <label>排序方式</label>
+        <select class="sort-select" id="sortSelect">
+          <option value="general">综合排序</option>
+          <option value="time_desc">最新发布</option>
+          <option value="popularity_desc">最多点赞</option>
+        </select>
+      </div>
+      <div class="form-group count-group">
+        <label>获取数量</label>
+        <select class="count-select" id="countSelect">
+          <option value="50" selected>50条</option>
+          <option value="100">100条</option>
+          <option value="200">200条</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>&nbsp;</label>
+        <button class="search-btn" id="searchBtn" onclick="startSearch()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          开始搜索
+        </button>
+      </div>
+    </div>
+    <div class="mcp-status">
+      <div class="mcp-dot" id="mcpDot"></div>
+      <span id="mcpStatusText">正在检测 MCP 服务连接状态...</span>
+      <button class="mcp-btn" onclick="toggleConfig()">配置 MCP</button>
+      <button class="mcp-btn" onclick="testMcpConnection()">测试连接</button>
+    </div>
+  </div>
+
+  <!-- MCP CONFIG PANEL -->
+  <div class="config-panel" id="configPanel">
+    <div class="panel-title">MCP 服务配置</div>
+    <p style="font-size:13px;color:var(--text-sub);line-height:1.7;">
+      本系统通过 <strong>xiaohongshu-mcp</strong> 服务获取真实笔记数据。请确保本地已启动 MCP 服务（默认 <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-family:monospace;">http://localhost:18060/mcp</code>）。
+      若服务离线，系统将使用演示数据供您预览分析功能。
+    </p>
+    <div class="config-grid">
+      <div class="config-item">
+        <label>MCP 服务地址</label>
+        <input type="text" id="mcpUrl" value="http://localhost:18060/mcp" placeholder="http://localhost:18060/mcp" />
+      </div>
+      <div class="config-item">
+        <label>请求超时（秒）</label>
+        <input type="number" id="mcpTimeout" value="30" min="5" max="120" />
+      </div>
+    </div>
+    <div class="config-save">
+      <button class="search-btn" style="height:38px;padding:0 20px;" onclick="saveConfig()">保存配置</button>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card" style="--accent:#FF2442">
+      <div class="stat-label">搜索到的笔记</div>
+      <div><span class="stat-value" id="statTotal">0</span> <span class="stat-unit">篇</span></div>
+      <div class="stat-change" id="statTotalChange">-</div>
+    </div>
+    <div class="stat-card" style="--accent:#f97316">
+      <div class="stat-label">平均点赞数</div>
+      <div><span class="stat-value" id="statAvgLike">0</span></div>
+      <div class="stat-change" id="statAvgLikeChange">-</div>
+    </div>
+    <div class="stat-card" style="--accent:#8b5cf6">
+      <div class="stat-label">平均收藏数</div>
+      <div><span class="stat-value" id="statAvgCollect">0</span></div>
+      <div class="stat-change" id="statAvgCollectChange">-</div>
+    </div>
+    <div class="stat-card" style="--accent:#06b6d4">
+      <div class="stat-label">平均评论数</div>
+      <div><span class="stat-value" id="statAvgComment">0</span></div>
+      <div class="stat-change">-</div>
+    </div>
+    <div class="stat-card" style="--accent:#22c55e">
+      <div class="stat-label">平均互动率</div>
+      <div><span class="stat-value" id="statEngRate">0</span> <span class="stat-unit">%</span></div>
+      <div class="stat-change" id="statEngRateChange">-</div>
+    </div>
+    <div class="stat-card" style="--accent:#FF2442">
+      <div class="stat-label">爆款笔记（>1K赞）</div>
+      <div><span class="stat-value" id="statHot">0</span> <span class="stat-unit">篇</span></div>
+      <div class="stat-change">-</div>
+    </div>
+  </div>
+
+  <!-- CONTENT GRID: 数据分析在上，笔记列表在下 -->
+  <div class="content-grid-vertical">
+
+    <!-- TOP: ANALYSIS PANEL -->
+    <div class="analysis-panel">
+      <!-- SIDEBAR TAB BAR -->
+      <div class="sidebar-tabs" id="sidebarTabs">
+        <button class="stab-btn active" onclick="switchSidebarTab('ops')" id="stab-ops">📊 运营</button>
+        <button class="stab-btn" onclick="switchSidebarTab('product')" id="stab-product" style="display:none;">🔬 产品</button>
+        <button class="stab-btn" onclick="switchSidebarTab('consumer')" id="stab-consumer">👥 消费者</button>
+        <button class="stab-btn" onclick="switchSidebarTab('scene')" id="stab-scene" style="display:none;">📍 场景</button>
+        <button class="stab-btn" onclick="switchSidebarTab('competitive')" id="stab-competitive" style="display:none;">🏆 竞品</button>
+      </div>
+
+      <!-- TAB: 运营分析 -->
+      <div id="sideTab-ops">
+
+        <!-- 互动率分析 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#FFF0F2;">📊</div>
+            互动率分布
+          </div>
+          <div class="analysis-body">
+            <div class="chart-wrap">
+              <canvas id="engChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- 发布时段分析 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#f0f9ff;">⏰</div>
+            发布时段热力
+          </div>
+          <div class="analysis-body">
+            <div class="time-dist" id="timeDist"></div>
+          </div>
+        </div>
+
+        <!-- 热门标签 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#fff7ed;">🏷️</div>
+            热门话题标签
+          </div>
+          <div class="analysis-body">
+            <div class="tag-cloud" id="tagCloud"></div>
+          </div>
+        </div>
+
+        <!-- 内容类型分布 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#f0fdf4;">📱</div>
+            内容类型分布
+          </div>
+          <div class="analysis-body">
+            <div class="chart-wrap-sm chart-wrap">
+              <canvas id="typeChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- 运营洞察 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#fdf4ff;">💡</div>
+            智能运营洞察
+          </div>
+          <div class="analysis-body">
+            <div class="insight-list" id="insightList">
+              <div class="insight-item info">搜索后将自动生成个性化运营洞察和爆款打造建议。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 调试信息 -->
+        <div class="analysis-card" id="debugPanel" style="display:none;">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#f0f0f0;">🐛</div>
+            调试信息
+            <button class="mcp-btn" style="margin-left:auto;" onclick="document.getElementById('debugContent').style.display='none';document.getElementById('debugPanel').style.display='none';">隐藏</button>
+          </div>
+          <div class="analysis-body">
+            <pre id="debugContent" style="font-size:11px;max-height:200px;overflow:auto;background:#1a1a1a;color:#e2e8f0;padding:10px;border-radius:8px;"></pre>
+          </div>
+        </div>
+
+      </div><!-- /sideTab-ops -->
+
+      <!-- TAB: 产品洞察 -->
+      <div id="sideTab-product" style="display:none;">
+
+        <!-- 1. 产品形态关键词 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#FFF0F2;">🔥</div>
+            产品形态关键词 TOP20
+            <span class="analysis-tip">识别爆款品类趋势</span>
+          </div>
+          <div class="analysis-body" id="productKeywords">
+            <div class="placeholder-tip">搜索后自动提取标题/描述中的产品形态词</div>
+          </div>
+        </div>
+
+        <!-- 2. 核心卖点短语 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#fff7ed;">💬</div>
+            核心卖点短语
+            <span class="analysis-tip">理解购买驱动力</span>
+          </div>
+          <div class="analysis-body" id="sellingPoints">
+            <div class="placeholder-tip">搜索后提取高频卖点描述词</div>
+          </div>
+        </div>
+
+        <!-- 3. 互动量热度分布（价格甜蜜点代理指标） -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#f0fdf4;">📈</div>
+            互动量热度分布
+            <span class="analysis-tip">反映内容受欢迎程度</span>
+          </div>
+          <div class="analysis-body">
+            <div class="chart-wrap" style="height:140px;">
+              <canvas id="engDistChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 场景词提取 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#f0f9ff;">🎯</div>
+            使用场景提取
+            <span class="analysis-tip">定义产品场景与功能</span>
+          </div>
+          <div class="analysis-body" id="sceneWords">
+            <div class="placeholder-tip">搜索后提取用户描述的使用场景</div>
+          </div>
+        </div>
+
+        <!-- 5. 产品开发洞察简报 -->
+        <div class="analysis-card" id="productReportCard">
+          <div class="analysis-header" style="justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="analysis-header-icon" style="background:#fdf4ff;">📋</div>
+              产品开发洞察简报
+            </div>
+            <button class="export-btn" style="padding:4px 10px;font-size:12px;" onclick="exportProductReport()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              导出简报
+            </button>
+          </div>
+          <div class="analysis-body" id="productReport">
+            <div class="placeholder-tip">搜索后自动生成产品开发洞察简报</div>
+          </div>
+        </div>
+
+      </div><!-- /sideTab-product -->
+
+      <!-- TAB: 消费者洞察 -->
+      <div id="sideTab-consumer" style="display:none;">
+
+        <!-- 情感分析 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#FFF0F2;">❤️</div>
+            情感观点分布
+            <span class="analysis-tip">了解用户口碑</span>
+          </div>
+          <div class="analysis-body" id="sentimentPanel">
+            <div class="placeholder-tip">搜索后自动分析正/负/中性情感观点</div>
+          </div>
+        </div>
+
+        <!-- 热点主题聚类 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#fff7ed;">🗂️</div>
+            热点主题聚类
+            <span class="analysis-tip">发现内容主题分布</span>
+          </div>
+          <div class="analysis-body" id="topicCluster">
+            <div class="placeholder-tip">搜索后自动对笔记进行主题聚类分析</div>
+          </div>
+        </div>
+
+        <!-- 用户画像 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#f0fdf4;">👤</div>
+            用户画像
+            <span class="analysis-tip">了解内容受众特征</span>
+          </div>
+          <div class="analysis-body" id="userPortrait">
+            <div class="placeholder-tip">搜索后自动生成用户画像</div>
+          </div>
+        </div>
+
+        <!-- 需求与痛点 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#f5f3ff;">🎯</div>
+            需求与痛点
+            <span class="analysis-tip">高频需求词挖掘</span>
+          </div>
+          <div class="analysis-body" id="demandPain">
+            <div class="placeholder-tip">搜索后提取用户需求与痛点词</div>
+          </div>
+        </div>
+
+        <!-- 互动行为分析 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <div class="analysis-header-icon" style="background:#ecfeff;">📱</div>
+            互动行为偏好
+            <span class="analysis-tip">了解用户互动模式</span>
+          </div>
+          <div class="analysis-body">
+            <div class="chart-wrap" style="height:150px;">
+              <canvas id="behaviorChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- 消费者洞察简报 -->
+        <div class="analysis-card">
+          <div class="analysis-header" style="justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="analysis-header-icon" style="background:#fdf4ff;">📝</div>
+              消费者洞察简报
+            </div>
+            <button class="export-btn" style="padding:4px 10px;font-size:12px;" onclick="exportConsumerReport()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              导出
+            </button>
+          </div>
+          <div class="analysis-body" id="consumerReport">
+            <div class="placeholder-tip">搜索后自动生成消费者洞察简报</div>
+          </div>
+        </div>
+
+      </div><!-- /sideTab-consumer -->
+
+      <!-- TAB: 场景分析（场景词专用） -->
+      <div id="sideTab-scene" style="display:none;">
+        <div id="scenePanel">
+          <div class="analysis-card">
+            <div class="card-title">📍 场景分析</div>
+            <div class="placeholder-tip">搜索场景相关关键词后将显示地点和体验分析</div>
+          </div>
+        </div>
+      </div><!-- /sideTab-scene -->
+
+      <!-- TAB: 竞品分析（品牌词专用） -->
+      <div id="sideTab-competitive" style="display:none;">
+        <div id="competitivePanel">
+          <div class="analysis-card">
+            <div class="card-title">🏆 竞品分析</div>
+            <div class="placeholder-tip">搜索品牌关键词后将显示竞品对比分析</div>
+          </div>
+        </div>
+      </div><!-- /sideTab-competitive -->
+
+    </div><!-- /analysis-panel -->
+
+    <!-- BOTTOM: NOTE LIST -->
+    <div class="notes-panel">
+      <div class="notes-header">
+        <span class="notes-title" id="notesTitle">笔记列表</span>
+        <div class="notes-actions">
+          <button class="icon-btn" title="刷新" onclick="startSearch()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+          </button>
+          <button class="icon-btn" title="导出CSV" onclick="exportCSV()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="notesList">
+        <div class="notes-empty">
+          <div class="empty-icon">🔍</div>
+          <p>请输入关键词并点击搜索，系统将自动获取小红书笔记数据</p>
+          <p style="margin-top:8px;font-size:12px;">支持多关键词、时间筛选、数据分析</p>
+        </div>
+      </div>
+      <div class="pagination" id="pagination" style="display:none;"></div>
+    </div>
+  </div><!-- /content-grid-vertical -->
+
+  <!-- EXPORT BAR -->
+  <div class="export-bar" id="exportBar" style="display:none;">
+    <span class="export-label">数据导出：</span>
+    <button class="export-btn" onclick="exportCSV()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      导出 CSV
+    </button>
+    <button class="export-btn" onclick="exportJSON()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      导出 JSON
+    </button>
+    <button class="export-btn" onclick="printReport()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      打印报告
+    </button>
+    <span id="exportInfo" style="margin-left:auto;font-size:12px;color:var(--text-mute);"></span>
+    <button class="export-btn" onclick="toggleCachePanel()" style="background:var(--bg);color:var(--text-sub);border:1px solid var(--border);">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      缓存管理
+    </button>
+  </div>
+
+  <!-- 缓存管理面板 -->
+  <div id="cachePanel" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:14px;font-weight:600;color:var(--text);">
+        🗄️ 数据缓存管理
+        <span id="cachePanelCount" style="font-size:12px;color:var(--text-mute);font-weight:400;margin-left:6px;"></span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="mcp-btn" onclick="clearExpiredCache()" style="font-size:12px;">清理过期</button>
+        <button class="mcp-btn" onclick="clearAllCache()" style="font-size:12px;background:#fff1f2;color:#e11d48;">清空全部</button>
+        <button class="mcp-btn" onclick="toggleCachePanel()" style="font-size:12px;">关闭</button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-mute);margin-bottom:10px;">缓存有效期 24 小时 · 按关键词+时间段+数量独立缓存</div>
+    <div id="cachePanelList">
+      <div class="placeholder-tip">暂无缓存记录</div>
+    </div>
+  </div>
+
+
+
+</div>
+
+<!-- MCP 说明 MODAL -->
+<div class="modal-overlay hidden" id="mcpModal">
+  <div class="modal-box">
+    <div class="modal-title">如何启动 xiaohongshu-mcp 服务</div>
+    <div class="modal-body">
+      <p>本系统通过 MCP 协议调用小红书官方数据接口。请按以下步骤启动服务：</p>
+      <p><strong>方式一：使用 Docker（推荐）</strong></p>
+      <pre>docker pull xpzouying/xiaohongshu-mcp
+# 下载 docker-compose 文件
+curl -O https://raw.githubusercontent.com/xpzouying/xiaohongshu-mcp/main/docker/docker-compose.yml
+# 启动服务
+docker compose up -d</pre>
+      <p><strong>方式二：直接运行二进制文件</strong></p>
+      <pre># 1. 先运行登录工具
+./xiaohongshu-login
+# 2. 启动 MCP 服务
+./xiaohongshu-mcp</pre>
+      <p>服务启动后默认监听 <code>http://localhost:18060/mcp</code>，本系统将自动连接。</p>
+      <p style="margin-top:12px;color:#f97316;font-size:12px;">⚠️ 如服务未启动，系统将使用内置的演示数据展示分析功能。</p>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-close" onclick="closeMcpModal()">关闭</button>
+      <button class="modal-confirm" onclick="testMcpConnection();closeMcpModal()">测试连接</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTE DETAIL MODAL -->
+<div class="detail-modal-overlay hidden" id="detailModal">
+  <div class="detail-modal" id="detailContent"></div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<script>
+// ========== STATE ==========
+const state = {
+  keywords: [],
+  days: 7,
+  sort: 'general',
+  count: 50,
+  notes: [],
+  page: 1,
+  pageSize: 10,
+  mcpUrl: localStorage.getItem('mcpUrl') || 'http://localhost:18060/mcp',
+  mcpOnline: false,
+  isLoading: false,
+  charts: {},
+  keywordType: 'general', // brand|product|scene|general
+  analysisConfig: {},
+};
+
+// ========== INIT ==========
+document.addEventListener('DOMContentLoaded', () => {
+  // restore config
+  const savedUrl = localStorage.getItem('mcpUrl');
+  if (savedUrl) document.getElementById('mcpUrl').value = savedUrl;
+
+  // keyword input
+  const ki = document.getElementById('keywordInput');
+  ki.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ',') && ki.value.trim()) {
+      e.preventDefault();
+      addKeyword(ki.value.trim());
+      ki.value = '';
+    }
+  });
+
+  // time btns
+  document.querySelectorAll('.time-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.days = parseInt(btn.dataset.days);
+    });
+  });
+
+  // sort/count selects
+  document.getElementById('sortSelect').addEventListener('change', e => { state.sort = e.target.value; });
+  document.getElementById('countSelect').addEventListener('change', e => { state.count = parseInt(e.target.value); });
+
+  // close detail modal on overlay click
+  document.getElementById('detailModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeDetail();
+  });
+
+  testMcpConnection();
+  renderTimeDist([]);
+  renderTagCloud([]);
+  initCharts();
+  clearExpiredCache();
+  updateCachePanel();
+});
+
+// ========== KEYWORDS ==========
+function addKeyword(kw) {
+  if (!kw || state.keywords.includes(kw)) return;
+  state.keywords.push(kw);
+  renderKeywordTags();
+}
+function removeKeyword(kw) {
+  state.keywords = state.keywords.filter(k => k !== kw);
+  renderKeywordTags();
+}
+function renderKeywordTags() {
+  const el = document.getElementById('keywordTags');
+  el.innerHTML = state.keywords.map(k => `
+    <span class="keyword-tag" onclick="removeKeyword('${k}')">
+      ${escHtml(k)} <span class="remove">×</span>
+    </span>`).join('');
+}
+
+// ========== CONFIG ==========
+function toggleConfig() {
+  const p = document.getElementById('configPanel');
+  p.classList.toggle('show');
+}
+function saveConfig() {
+  const url = document.getElementById('mcpUrl').value.trim();
+  state.mcpUrl = url;
+  localStorage.setItem('mcpUrl', url);
+  toast('配置已保存', 'success');
+  testMcpConnection();
+  toggleConfig();
+}
+
+// ========== MCP CONNECTION ==========
+async function testMcpConnection() {
+  const dot = document.getElementById('mcpDot');
+  const txt = document.getElementById('mcpStatusText');
+  dot.className = 'mcp-dot';
+  txt.textContent = '正在连接 MCP 服务...';
+  try {
+    // Test REST API availability
+    const healthUrl = state.mcpUrl.replace('/mcp', '/health');
+    const resp = await fetchWithTimeout(healthUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    }, 5000);
+    
+    if (resp.ok) {
+      dot.className = 'mcp-dot online';
+      txt.textContent = `MCP 服务已连接 (${state.mcpUrl}) — 实时数据模式`;
+      state.mcpOnline = true;
+      toast('MCP 服务连接成功！已切换为实时数据模式', 'success');
+    } else {
+      throw new Error('Health check failed');
+    }
+  } catch(e) {
+    console.error('MCP check failed:', e);
+    dot.className = 'mcp-dot offline';
+    txt.textContent = 'MCP 服务未连接 — 当前使用演示数据模式（点击"配置 MCP"查看启动说明）';
+    state.mcpOnline = false;
+  }
+}
+async function fetchWithTimeout(url, opts, timeout) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeout);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(tid); }
+}
+
+// ========== MCP SESSION ==========
+let mcpSessionId = null;
+let mcpInitialized = false;
+
+// Use REST API instead of MCP protocol (MCP has session bug)
+// REST API endpoint: GET /api/v1/feeds/search?keyword=xxx
+async function callMcp(toolName, params) {
+  // toolName is ignored, we use REST API directly
+  const keyword = params.keyword || '';
+  const filters = params.filters || {};
+  
+  // Build query params
+  const queryParams = new URLSearchParams();
+  queryParams.append('keyword', keyword);
+  
+  // Map filter_duration to API params if needed
+  // filter_duration: 1=最近一天, 2=最近一周, 3=最近半年
+  if (filters.filter_duration) {
+    queryParams.append('filter_duration', filters.filter_duration);
+  }
+  if (filters.sort) {
+    queryParams.append('sort', filters.sort);
+  }
+  
+  // Use REST API endpoint
+  const restUrl = state.mcpUrl.replace('/mcp', '/api/v1/feeds/search') + '?' + queryParams.toString();
+  console.log('[REST API] Calling:', restUrl);
+  
+  const resp = await fetchWithTimeout(restUrl, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' }
+  }, 60000); // 60s timeout - xhs scraping takes 20-30s
+  
+  if (!resp.ok) {
+    // 500 means server panic (context canceled from browser timeout)
+    if (resp.status === 500) {
+      throw new Error('服务器爬取超时（500），小红书页面加载慢，请重试');
+    }
+    throw new Error(`请求失败 HTTP ${resp.status}`);
+  }
+  
+  const data = await resp.json();
+  console.log('[REST API] Response feeds count:', data?.data?.feeds?.length);
+  
+  if (!data.success) {
+    throw new Error(data.message || 'API request failed');
+  }
+  
+  // Convert REST API response to MCP-like format
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify(data.data.feeds || [])
+    }]
+  };
+}
+
+// ========== SEARCH ==========
+async function startSearch() {
+  const ki = document.getElementById('keywordInput');
+  if (ki.value.trim()) { addKeyword(ki.value.trim()); ki.value = ''; }
+
+  let kws = [...state.keywords];
+  if (kws.length === 0) {
+    toast('请至少输入一个关键词', 'warning'); return;
+  }
+
+  if (state.isLoading) return;
+
+  // === 关键词类型检测 & 分析维度配置 ===
+  state.keywordType = detectKeywordType(kws);
+  state.analysisConfig = getAnalysisConfig(state.keywordType);
+  updateSidebarTabs(state.analysisConfig);
+  
+  // 显示检测到的类型
+  const typeNames = { brand: '品牌词', product: '产品词', scene: '场景词', general: '通用词' };
+  toast(`检测到「${typeNames[state.keywordType]}」，已适配分析维度`, 'info');
+
+  // === 缓存检查 ===
+  const cached = loadCache(kws, state.days, state.count);
+  if (cached) {
+    const cacheAge = Math.round((Date.now() - cached.ts) / 60000);
+    const ageStr = cacheAge < 60 ? `${cacheAge}分钟` : `${Math.round(cacheAge/60)}小时`;
+    // 提示用户有缓存，询问是否使用
+    const useCached = confirm(`🗄️ 检测到 ${cached.notes.length} 条缓存数据（${ageStr}前）\n\n点「确定」使用缓存（快速加载）\n点「取消」重新爬取（获取最新数据）`);
+    if (useCached) {
+      state.notes = cached.notes;
+      state.page = 1;
+      // 从缓存恢复关键词类型配置
+      if (cached.keywordType) {
+        state.keywordType = cached.keywordType;
+        state.analysisConfig = getAnalysisConfig(state.keywordType);
+        updateSidebarTabs(state.analysisConfig);
+      }
+      renderNotes();
+      updateStats();
+      renderAnalysis();
+      document.getElementById('exportBar').style.display = 'flex';
+      document.getElementById('exportInfo').textContent = `共 ${state.notes.length} 条（缓存数据），缓存时间：${new Date(cached.ts).toLocaleString('zh-CN')} 💾`;
+      toast(`已从缓存加载 ${state.notes.length} 篇笔记（${ageStr}前）`, 'success');
+      return;
+    }
+  }
+
+  state.isLoading = true;
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0;"></div> 爬取中（约30秒）...';
+
+  showLoading();
+
+  try {
+    let allNotes = [];
+    let useRealData = state.mcpOnline;
+    
+    for (const kw of kws) {
+      if (useRealData) {
+        try {
+          const notes = await fetchFromMcp(kw);
+          allNotes = allNotes.concat(notes);
+        } catch (mcpErr) {
+          console.error('MCP failed for keyword', kw, mcpErr);
+          toast(`关键词「${kw}」MCP获取失败，切换到演示数据`, 'warning');
+          useRealData = false;
+          const notes = generateDemoNotes(kw, state.count);
+          allNotes = allNotes.concat(notes);
+        }
+      } else {
+        const notes = generateDemoNotes(kw, state.count);
+        allNotes = allNotes.concat(notes);
+      }
+    }
+
+    // 去重并排序
+    const seen = new Set();
+    state.notes = allNotes.filter(n => {
+      if (seen.has(n.id)) return false;
+      seen.add(n.id); return true;
+    });
+    sortNotes();
+
+    // === 保存缓存 ===
+    saveCache(kws, state.days, state.count, state.notes);
+
+    state.page = 1;
+    renderNotes();
+    updateStats();
+    renderAnalysis();
+
+    document.getElementById('exportBar').style.display = 'flex';
+    const dataSource = useRealData ? '真实数据' : '演示数据';
+    document.getElementById('exportInfo').textContent = `共 ${state.notes.length} 条${dataSource}，最后更新：${new Date().toLocaleTimeString('zh-CN')} 💾已缓存`;
+    toast(`成功获取 ${state.notes.length} 篇笔记（${dataSource}）`, useRealData ? 'success' : 'warning');
+
+  } catch(err) {
+    console.error(err);
+    toast('获取数据失败：' + err.message, 'error');
+    // fallback demo
+    state.notes = [];
+    for (const kw of kws) {
+      state.notes = state.notes.concat(generateDemoNotes(kw, 20));
+    }
+    renderNotes();
+    updateStats();
+    renderAnalysis();
+  } finally {
+    state.isLoading = false;
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> 开始搜索';
+  }
+}
+
+async function fetchFromMcp(keyword) {
+  try {
+    const filters = {
+      sort: state.sort,
+      note_type: 0,
+    };
+    if (state.days <= 7) filters.filter_duration = 2;  // 7天 -> 最近一周
+    else if (state.days <= 30) filters.filter_duration = 3;  // 30天 -> 最近半年(用3代替)
+    else filters.filter_duration = 3;  // 90天 -> 最近半年
+
+    console.log('[API] Fetching keyword:', keyword, 'filters:', filters);
+    const result = await callMcp('search_feeds', { keyword, filters });
+    
+    // Parse result - REST API returns { content: [{ text: JSON.stringify(feeds) }] }
+    let items = [];
+    
+    // Handle REST API response format
+    if (result?.content && Array.isArray(result.content)) {
+      for (const content of result.content) {
+        if (content.text) {
+          try {
+            const parsed = JSON.parse(content.text);
+            console.log('[API] Parsed content type:', typeof parsed, Array.isArray(parsed) ? 'array' : 'object');
+            
+            if (Array.isArray(parsed)) {
+              items = items.concat(parsed);
+            } else if (parsed.feeds && Array.isArray(parsed.feeds)) {
+              items = items.concat(parsed.feeds);
+            } else if (parsed.data && Array.isArray(parsed.data)) {
+              items = items.concat(parsed.data);
+            } else if (parsed.items || parsed.notes) {
+              items = items.concat(parsed.items || parsed.notes);
+            } else if (parsed.id || parsed.noteCard || parsed.note_card) {
+              // Single item wrapped
+              items.push(parsed);
+            }
+          } catch (e) {
+            console.warn('[API] Parse failed:', content.text?.substring(0, 200));
+          }
+        }
+      }
+    }
+    
+    console.log('[API] Raw items count:', items.length);
+    if (items.length > 0) {
+      console.log('[API] First item sample:', JSON.stringify(items[0]).substring(0, 300));
+    }
+    
+    if (items.length === 0) {
+      throw new Error('返回数据为空，小红书可能拦截了请求，请稍后重试');
+    }
+    
+    const normalized = normalizeNotes(items, keyword);
+    console.log('[API] Normalized:', normalized.length, 'notes');
+    
+    if (normalized.length === 0) {
+      throw new Error('数据解析失败，请查看控制台日志');
+    }
+    
+    return normalized;
+  } catch(e) {
+    console.error('[API] Failed:', e);
+    // Friendly error message for common issues
+    let msg = e.message;
+    if (msg.includes('500') || msg.includes('context canceled')) {
+      msg = '爬取超时，小红书页面加载慢，请再试一次';
+    } else if (msg.includes('AbortError') || msg.includes('abort')) {
+      msg = '请求超时（60秒），服务端爬取耗时过长，请重试';
+    } else if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      msg = 'MCP 服务连接失败，请确认服务已启动';
+    }
+    toast('获取失败：' + msg, 'error');
+    throw new Error(msg);
+  }
+}
+
+function normalizeNotes(raw, keyword) {
+  if (!Array.isArray(raw)) {
+    console.warn('[normalize] Input is not array:', raw);
+    return [];
+  }
+  
+  return raw.map((item, i) => {
+    // API returns: { id, xsecToken, noteCard: { type, displayTitle, user, interactInfo, cover } }
+    // Support both camelCase (new API) and snake_case (legacy) field names
+    const note = item.noteCard || item.note_card || item.note || item;
+    const interact = note.interactInfo || note.interact_info || note.interact || {};
+    
+    // ID: top-level item.id is the note ID
+    const id = item.id || note.id || note.note_id || note.noteId || `note_${Date.now()}_${i}`;
+    
+    // xsecToken for URL building
+    const xsecToken = item.xsecToken || item.xsec_token || note.xsecToken || note.xsec_token || '';
+    
+    // Title: noteCard.displayTitle
+    let title = note.displayTitle || note.display_title || note.title || '';
+    if (!title && note.desc) {
+      title = note.desc.substring(0, 30) + (note.desc.length > 30 ? '...' : '');
+    }
+    if (!title) title = '无标题';
+    
+    // Description
+    const desc = note.desc || note.content || note.description || '';
+    
+    // Author: noteCard.user.nickname
+    const user = note.user || note.author || {};
+    const author = user.nickname || user.nickName || user.nick || user.name || '未知用户';
+    const authorId = user.userId || user.user_id || user.id || '';
+    
+    // Interaction stats (values may be strings like "99")
+    const likes = parseInt(interact.likedCount || interact.liked_count || interact.likes || note.likes || 0) || 0;
+    const collects = parseInt(interact.collectedCount || interact.collected_count || interact.collects || note.collects || 0) || 0;
+    const comments = parseInt(interact.commentCount || interact.comment_count || interact.comments || note.comments || 0) || 0;
+    
+    // Publish time
+    let publishTime = new Date().toLocaleDateString('zh-CN');
+    const timeVal = note.time || note.publish_time || note.createTime || note.created_at;
+    if (timeVal) {
+      const ts = typeof timeVal === 'number' ? (timeVal > 10000000000 ? timeVal : timeVal * 1000) : new Date(timeVal).getTime();
+      if (!isNaN(ts)) publishTime = new Date(ts).toLocaleDateString('zh-CN');
+    }
+    
+    // Tags
+    let tags = [];
+    const tagList = note.tagList || note.tag_list || note.tags;
+    if (Array.isArray(tagList)) {
+      tags = tagList.map(t => typeof t === 'string' ? t : (t.name || t.tag || '')).filter(Boolean);
+    }
+    
+    // Content type
+    const type = note.type || (note.videoUrl || note.video_url ? 'video' : 'normal');
+    
+    // Cover image: noteCard.cover.urlDefault or urlPre
+    const cover = note.cover?.urlDefault || note.cover?.urlPre || note.cover?.url_default || note.cover?.url || '';
+    
+    // URL
+    const url = `https://www.xiaohongshu.com/explore/${id}${xsecToken ? '?xsec_token=' + encodeURIComponent(xsecToken) + '&xsec_source=pc_search' : ''}`;
+    
+    return { id, xsecToken, title, desc, cover, author, authorId, likes, collects, comments, publishTime, tags, type, keyword, url };
+  }).filter(n => n.id && n.id !== 'undefined');
+}
+
+// ========== KEYWORD TYPE DETECTION & DYNAMIC ANALYSIS ==========
+
+// 关键词类型检测规则
+const KEYWORD_PATTERNS = {
+  brand: {
+    patterns: [
+      /^(苹果|华为|小米|三星|索尼|戴森|香奈儿|迪奥|雅诗兰黛|兰蔻|SK.?II|海蓝之谜|耐克|阿迪|优衣库|ZARA|H&M|宜家|无印良品|星巴克|喜茶|奈雪|蜜雪冰城|瑞幸|特斯拉|比亚迪|蔚来|小鹏|理想)/i,
+      /[品牌|官方|旗舰店|专柜|正品|联名|限定款]/,
+      /^[A-Z][a-z]+$/ // 纯英文品牌名如 Apple, Nike
+    ],
+    weight: 1.0
+  },
+  product: {
+    patterns: [
+      /(手机|电脑|耳机|包包|口红|面霜|精华|眼影|粉底液|运动鞋|连衣裙|外套|咖啡|奶茶|蛋糕|零食|面膜|香水|手表|项链|耳环)/i,
+      /(测评|开箱|试用|体验|对比|哪款|推荐|值得买|性价比|平替)/i,
+      /\d+[gGmlML]|\d+寸|\d+代|\d+pro/i
+    ],
+    weight: 0.8
+  },
+  scene: {
+    patterns: [
+      /(旅行|旅游|攻略|打卡|探店|约会|聚会|婚礼|生日|节日|春节|圣诞|周末|假期|夏天|冬天|海边|山野|露营|徒步)/i,
+      /(去哪里|去哪儿|好去处|推荐地|必去|小众|网红|热门)/i,
+      /(穿搭|搭配|造型|妆容|发型|美甲|拍照|滤镜)/i
+    ],
+    weight: 0.6
+  }
+};
+
+// 分析维度配置 - 根据关键词类型动态显示
+const ANALYSIS_DIMENSIONS = {
+  brand: {
+    // 品牌词：重点看品牌口碑、竞品对比、消费者态度
+    ops: { enabled: true, priority: 'high', focus: ['engagement', 'timeHeat', 'sentiment'] },
+    product: { enabled: true, priority: 'medium', focus: ['features', 'sellingPoints'] },
+    consumer: { enabled: true, priority: 'high', focus: ['sentiment', 'userPortrait', 'needs'] },
+    competitive: { enabled: true, priority: 'high' } // 竞品对比
+  },
+  product: {
+    // 产品词：重点看产品卖点、使用场景、购买决策
+    ops: { enabled: true, priority: 'medium', focus: ['engagement', 'typeDist'] },
+    product: { enabled: true, priority: 'high', focus: ['features', 'sellingPoints', 'usageScenes', 'engDist'] },
+    consumer: { enabled: true, priority: 'high', focus: ['sentiment', 'needs', 'painPoints', 'behavior'] },
+    competitive: { enabled: false }
+  },
+  scene: {
+    // 场景词：重点看地点推荐、体验分享、人群画像
+    ops: { enabled: true, priority: 'high', focus: ['engagement', 'timeHeat'] },
+    product: { enabled: false },
+    consumer: { enabled: true, priority: 'high', focus: ['userPortrait', 'behavior', 'sentiment'] },
+    scene: { enabled: true, priority: 'high', focus: ['locations', 'experience', 'tips'] } // 场景分析
+  },
+  general: {
+    // 通用词：显示全部维度
+    ops: { enabled: true, priority: 'medium', focus: ['engagement', 'timeHeat', 'tags', 'typeDist'] },
+    product: { enabled: true, priority: 'medium', focus: ['features', 'sellingPoints'] },
+    consumer: { enabled: true, priority: 'medium', focus: ['sentiment', 'userPortrait', 'needs'] },
+    competitive: { enabled: false },
+    scene: { enabled: false }
+  }
+};
+
+// 检测关键词类型
+function detectKeywordType(keywords) {
+  if (!keywords || keywords.length === 0) return 'general';
+  
+  const text = keywords.join(' ').toLowerCase();
+  const scores = { brand: 0, product: 0, scene: 0 };
+  
+  for (const [type, config] of Object.entries(KEYWORD_PATTERNS)) {
+    for (const pattern of config.patterns) {
+      if (pattern.test(text)) {
+        scores[type] += config.weight;
+      }
+    }
+  }
+  
+  // 找出得分最高的类型
+  let maxScore = 0;
+  let detectedType = 'general';
+  for (const [type, score] of Object.entries(scores)) {
+    if (score > maxScore) {
+      maxScore = score;
+      detectedType = type;
+    }
+  }
+  
+  console.log('[KeywordType] Detected:', detectedType, 'scores:', scores, 'keywords:', keywords);
+  return detectedType;
+}
+
+// 获取当前分析配置
+function getAnalysisConfig(keywordType) {
+  return ANALYSIS_DIMENSIONS[keywordType] || ANALYSIS_DIMENSIONS.general;
+}
+
+// 更新侧边栏Tab可见性
+function updateSidebarTabs(config) {
+  const opsTab = document.getElementById('stab-ops');
+  const productTab = document.getElementById('stab-product');
+  const consumerTab = document.getElementById('stab-consumer');
+  const sceneTab = document.getElementById('stab-scene');
+  const competitiveTab = document.getElementById('stab-competitive');
+  
+  // 运营Tab默认显示
+  if (opsTab) opsTab.style.display = config.ops?.enabled !== false ? 'flex' : 'none';
+  // 产品Tab
+  if (productTab) productTab.style.display = config.product?.enabled ? 'flex' : 'none';
+  // 消费者Tab默认显示
+  if (consumerTab) consumerTab.style.display = config.consumer?.enabled !== false ? 'flex' : 'none';
+  // 场景Tab（场景词专用）
+  if (sceneTab) sceneTab.style.display = config.scene?.enabled ? 'flex' : 'none';
+  // 竞品Tab（品牌词专用）
+  if (competitiveTab) competitiveTab.style.display = config.competitive?.enabled ? 'flex' : 'none';
+  
+  // 如果当前选中的tab被隐藏，切换到第一个可见的tab
+  const allTabs = ['ops', 'product', 'consumer', 'scene', 'competitive'];
+  const visibleTabs = allTabs.filter(t => {
+    const tabConfig = config[t];
+    return tabConfig?.enabled !== false && tabConfig?.enabled !== false;
+  });
+  
+  if (visibleTabs.length > 0 && !visibleTabs.includes(state.currentTab)) {
+    switchSidebarTab(visibleTabs[0]);
+  }
+}
+
+// ========== DEMO DATA ==========
+const demoTitles = [
+  '真实测评｜用了3个月的护肤心得，敏感肌亲测有效',
+  '一个人旅行攻略｜这些小众景点太绝了',
+  '宝藏早餐食谱｜10分钟搞定营养美味',
+  '我的健身变化记录｜坚持6个月的真实效果',
+  '这款精华真的被低估了！用完一瓶的感受',
+  '穿搭分享｜秋冬必备的经典百搭款',
+  '居家好物推荐｜让生活品质翻倍的小玩意',
+  '咖啡馆打卡｜城市里最有氛围感的一家',
+  '学习方法分享｜这样背单词效率超高',
+  '减脂餐食谱｜好吃不胖真的存在',
+  '素人逆袭｜我是怎么从路人变成博主的',
+  '平价宝藏好物｜这些东西贵替没必要',
+  '生活vlog｜普通人的一天，但很治愈',
+  '读书笔记｜这本书改变了我对XX的看法',
+  '发型改变了我！这款发色太适合亚洲人了',
+];
+const demoDescs = [
+  '最近一直有粉丝问我用什么护肤品，今天详细分享一下我的全套护肤流程～',
+  '作为一个旅游博主，这次终于找到了一个真正小众又美丽的地方',
+  '早餐是一天中最重要的一餐，分享我最爱的10款快手早餐配方',
+  '健身半年，体重从65kg降到了54kg，分享我的心路历程和方法',
+  '这款精华我用了快一个月，皮肤状态确实有明显改善，来分享我的感受',
+];
+const demoTags = [
+  ['护肤', '美妆', '敏感肌', '精华推荐', '好物分享'],
+  ['旅行', '小众景点', '穷游', '旅游攻略', '探索'],
+  ['美食', '早餐', '健康饮食', '食谱', '下厨'],
+  ['健身', '减肥', '运动', '打卡', '变形记'],
+  ['种草', '好物', '平价', '生活', '分享'],
+];
+function generateDemoNotes(keyword, count) {
+  const now = Date.now();
+  const notes = [];
+  for (let i = 0; i < count; i++) {
+    const id = `demo_${keyword}_${i}_${now}`;
+    const baseTime = now - Math.random() * state.days * 86400000;
+    const likes = Math.floor(Math.random() * 15000);
+    const collects = Math.floor(likes * (0.3 + Math.random() * 0.5));
+    const comments = Math.floor(likes * (0.05 + Math.random() * 0.1));
+    notes.push({
+      id,
+      xsecToken: 'demo_token_' + Math.random().toString(36).substr(2, 8),
+      title: demoTitles[i % demoTitles.length].replace('XX', keyword),
+      desc: demoDescs[i % demoDescs.length] + `（关键词：${keyword}）`,
+      author: ['小红薯用户', '生活记录者', '博主Alice', '日常分享er', '美食达人'][i % 5] + Math.floor(Math.random()*9999),
+      likes, collects, comments,
+      publishTime: new Date(baseTime).toLocaleDateString('zh-CN'),
+      publishTs: baseTime,
+      tags: [...demoTags[i % demoTags.length], keyword],
+      type: Math.random() > 0.3 ? 'normal' : 'video',
+      keyword,
+      url: `https://www.xiaohongshu.com/explore/${id.replace('demo_', '')}?xsec_source=pc_search`,
+    });
+  }
+  return notes;
+}
+
+// ========== SORT ==========
+function sortNotes() {
+  if (state.sort === 'popularity_desc') {
+    state.notes.sort((a, b) => b.likes - a.likes);
+  } else if (state.sort === 'time_desc') {
+    state.notes.sort((a, b) => (b.publishTs || 0) - (a.publishTs || 0));
+  } else {
+    // general: score = likes + collects*2 + comments*3
+    state.notes.sort((a, b) => (b.likes + b.collects*2 + b.comments*3) - (a.likes + a.collects*2 + a.comments*3));
+  }
+}
+
+// ========== RENDER NOTES ==========
+function showLoading() {
+  document.getElementById('notesList').innerHTML = `
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <p style="font-size:14px;color:var(--text-sub);">正在搜索笔记数据...</p>
+      <p style="font-size:12px;color:var(--text-mute);margin-top:6px;">${state.mcpOnline ? '正在爬取小红书真实数据，通常需要 20~40 秒，请耐心等待...' : '生成演示数据中'}</p>
+    </div>`;
+  document.getElementById('pagination').style.display = 'none';
+}
+
+function renderNotes() {
+  const { notes, page, pageSize } = state;
+  const total = notes.length;
+  const start = (page - 1) * pageSize;
+  const pageNotes = notes.slice(start, start + pageSize);
+
+  document.getElementById('notesTitle').textContent = `笔记列表（共 ${total} 篇）`;
+
+  if (total === 0) {
+    document.getElementById('notesList').innerHTML = `
+      <div class="notes-empty">
+        <div class="empty-icon">📭</div>
+        <p>未找到相关笔记</p>
+      </div>`;
+    document.getElementById('pagination').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('notesList').innerHTML = `
+    <div class="notes-list">${pageNotes.map((note, idx) => renderNoteCard(note, start + idx)).join('')}</div>`;
+
+  renderPagination(total, page, pageSize);
+}
+
+function renderNoteCard(note, globalIdx) {
+  const rank = globalIdx + 1;
+  const engRate = note.likes > 0 ? ((note.collects + note.comments) / Math.max(note.likes, 1) * 100).toFixed(1) : '0';
+  const isHot = note.likes >= 1000;
+  const isNew = rank <= 5;
+  const rankClass = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+  
+  // 封面图HTML
+  const coverHtml = note.cover 
+    ? `<img class="note-cover" src="${escHtml(note.cover)}" alt="封面" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="note-cover-placeholder" style="display:none;">📝</div>`
+    : `<div class="note-cover-placeholder">📝</div>`;
+
+  return `<div class="note-card${isHot && rank <= 3 ? ' highlight' : ''}" onclick="showDetail('${note.id}')">
+    ${isHot ? '<span class="badge badge-hot">热🔥</span>' : (isNew ? '<span class="badge badge-new">新</span>' : '')}
+    <div class="note-top">
+      <div class="note-rank ${rankClass}">${rank}</div>
+      ${coverHtml}
+      <div class="note-body">
+        <a class="note-title" href="${escHtml(note.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escHtml(note.title)}</a>
+        <div class="note-desc">${escHtml(note.desc || '（暂无描述）')}</div>
+        <div class="note-meta">
+          <span class="meta-chip likes">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            ${fmtNum(note.likes)}
+          </span>
+          <span class="meta-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+            ${fmtNum(note.collects)}
+          </span>
+          <span class="meta-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            ${fmtNum(note.comments)}
+          </span>
+          ${note.type === 'video' ? '<span class="meta-chip hot">🎬 视频</span>' : ''}
+          <span class="meta-chip" style="margin-left:auto;">互动率 ${engRate}%</span>
+        </div>
+        <div class="note-author">${escHtml(note.author)} · ${note.publishTime}</div>
+        <a class="note-link" href="${escHtml(note.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+          <svg class="note-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          在小红书中查看
+        </a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderPagination(total, page, pageSize) {
+  const totalPages = Math.ceil(total / pageSize);
+  if (totalPages <= 1) { document.getElementById('pagination').style.display = 'none'; return; }
+  const el = document.getElementById('pagination');
+  el.style.display = 'flex';
+  let html = `<button class="page-btn" ${page === 1 ? 'disabled' : ''} onclick="goPage(${page - 1})">‹</button>`;
+  const pages = getPageRange(page, totalPages);
+  pages.forEach(p => {
+    if (p === '...') html += `<span style="padding:0 4px;color:var(--text-mute)">…</span>`;
+    else html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+  });
+  html += `<button class="page-btn" ${page === totalPages ? 'disabled' : ''} onclick="goPage(${page + 1})">›</button>`;
+  el.innerHTML = html;
+}
+
+function getPageRange(cur, total) {
+  if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+  if (cur <= 4) return [1, 2, 3, 4, 5, '...', total];
+  if (cur >= total - 3) return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  return [1, '...', cur - 1, cur, cur + 1, '...', total];
+}
+
+function goPage(p) {
+  state.page = p;
+  renderNotes();
+  document.querySelector('.notes-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ========== STATS ==========
+function updateStats() {
+  const notes = state.notes;
+  if (!notes.length) return;
+  const total = notes.length;
+  const avgLike = Math.round(notes.reduce((s, n) => s + n.likes, 0) / total);
+  const avgCollect = Math.round(notes.reduce((s, n) => s + n.collects, 0) / total);
+  const avgComment = Math.round(notes.reduce((s, n) => s + n.comments, 0) / total);
+  const avgEng = (notes.reduce((s, n) => s + (n.likes > 0 ? (n.collects + n.comments) / n.likes * 100 : 0), 0) / total).toFixed(1);
+  const hot = notes.filter(n => n.likes >= 1000).length;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statAvgLike').textContent = fmtNum(avgLike);
+  document.getElementById('statAvgCollect').textContent = fmtNum(avgCollect);
+  document.getElementById('statAvgComment').textContent = fmtNum(avgComment);
+  document.getElementById('statEngRate').textContent = avgEng;
+  document.getElementById('statHot').textContent = hot;
+
+  document.getElementById('statTotalChange').textContent = `关键词：${state.keywords.join('、')}`;
+  document.getElementById('statAvgLikeChange').textContent = `中位数 ${fmtNum(median(notes.map(n => n.likes)))}`;
+  document.getElementById('statAvgCollectChange').textContent = `收藏/赞比 ${(avgCollect/Math.max(avgLike,1)*100).toFixed(0)}%`;
+  document.getElementById('statEngRateChange').textContent = `行业均值 ≥5%`;
+  const engEl = document.getElementById('statEngRateChange');
+  engEl.className = 'stat-change' + (parseFloat(avgEng) >= 5 ? '' : ' neg');
+}
+
+function median(arr) {
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+}
+
+// ========== SIDEBAR TAB SWITCH ==========
+function switchSidebarTab(tab) {
+  state.currentTab = tab;
+  const allTabs = ['ops', 'product', 'consumer', 'scene', 'competitive'];
+  
+  allTabs.forEach(t => {
+    const tabEl = document.getElementById('sideTab-' + t);
+    const btnEl = document.getElementById('stab-' + t);
+    if (tabEl) tabEl.style.display = t === tab ? '' : 'none';
+    if (btnEl) btnEl.classList.toggle('active', t === tab);
+  });
+  
+  // 根据当前Tab渲染对应内容
+  if (!state.notes.length) return;
+  
+  switch(tab) {
+    case 'product':
+      renderProductInsights(state.notes);
+      break;
+    case 'consumer':
+      renderConsumerInsights(state.notes);
+      break;
+    case 'scene':
+      renderSceneInsights(state.notes);
+      break;
+    case 'competitive':
+      renderCompetitiveInsights(state.notes);
+      break;
+  }
+}
+
+// ========== ANALYSIS ==========
+function renderAnalysis() {
+  const notes = state.notes;
+  const config = state.analysisConfig || ANALYSIS_DIMENSIONS.general;
+  
+  // 运营分析维度 - 根据配置选择性渲染
+  if (config.ops?.enabled !== false) {
+    const focus = config.ops?.focus || ['engagement', 'timeHeat', 'tags', 'typeDist'];
+    if (focus.includes('engagement')) renderEngChart(notes);
+    if (focus.includes('timeHeat')) renderTimeDist(notes);
+    if (focus.includes('tags')) renderTagCloud(notes);
+    if (focus.includes('typeDist')) renderTypeChart(notes);
+    renderInsights(notes);
+  }
+  
+  // 产品洞察维度
+  if (config.product?.enabled) {
+    renderProductInsights(notes);
+    if (!engDistChart) initEngDistChart();
+    renderEngDistChart(notes);
+  }
+  
+  // 消费者洞察维度
+  if (config.consumer?.enabled !== false) {
+    renderConsumerInsights(notes);
+    if (!behaviorChart) initBehaviorChart();
+    renderBehaviorChart(notes);
+  }
+  
+  // 场景分析维度（场景词专用）
+  if (config.scene?.enabled) {
+    renderSceneInsights(notes);
+  }
+  
+  // 竞品对比维度（品牌词专用）
+  if (config.competitive?.enabled) {
+    renderCompetitiveInsights(notes);
+  }
+}
+
+let engChart = null, typeChart = null;
+function initCharts() {
+  const ctxEng = document.getElementById('engChart').getContext('2d');
+  engChart = new Chart(ctxEng, {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+  const ctxType = document.getElementById('typeChart').getContext('2d');
+  typeChart = new Chart(ctxType, {
+    type: 'doughnut',
+    data: { labels: ['图文', '视频'], datasets: [{ data: [0, 0], backgroundColor: ['#FF2442', '#f97316'], borderWidth: 0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 8 } } },
+      cutout: '65%',
+    }
+  });
+}
+
+function renderEngChart(notes) {
+  if (!notes.length) return;
+  const buckets = [
+    { label: '0-1K', min: 0, max: 1000, color: '#fca5a5' },
+    { label: '1K-5K', min: 1000, max: 5000, color: '#f97316' },
+    { label: '5K-2W', min: 5000, max: 20000, color: '#FF6B81' },
+    { label: '2W-10W', min: 20000, max: 100000, color: '#FF2442' },
+    { label: '10W+', min: 100000, max: Infinity, color: '#cc0028' },
+  ];
+  const counts = buckets.map(b => notes.filter(n => n.likes >= b.min && n.likes < b.max).length);
+  engChart.data.labels = buckets.map(b => b.label);
+  engChart.data.datasets[0] = { data: counts, backgroundColor: buckets.map(b => b.color), borderRadius: 6, borderSkipped: false };
+  engChart.update();
+}
+
+function renderTimeDist(notes) {
+  const slots = [
+    { label: '凌晨', sub: '00-06', hours: [0,1,2,3,4,5] },
+    { label: '上午', sub: '07-11', hours: [7,8,9,10,11] },
+    { label: '下午', sub: '12-17', hours: [12,13,14,15,16,17] },
+    { label: '晚间', sub: '18-23', hours: [18,19,20,21,22,23] },
+  ];
+  const counts = slots.map(s => {
+    if (!notes.length) return Math.floor(Math.random() * 30 + 5);
+    return notes.filter(n => n.publishTs && slots.some(() => {
+      const h = new Date(n.publishTs).getHours();
+      return s.hours.includes(h);
+    })).length;
+  });
+  const max = Math.max(...counts, 1);
+  const colors = ['#94a3b8', '#FF6B81', '#f97316', '#FF2442'];
+  const el = document.getElementById('timeDist');
+  el.innerHTML = slots.map((s, i) => {
+    const pct = Math.round(counts[i] / max * 100);
+    return `<div class="td-item">
+      <div class="td-bar-wrap">
+        <div class="td-bar" style="height:${Math.max(pct, 8)}%;background:${colors[i]};width:24px;"></div>
+      </div>
+      <div class="td-label">${s.label}</div>
+      <div class="td-val">${counts[i]}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTagCloud(notes) {
+  const freq = {};
+  if (notes.length) {
+    notes.forEach(n => (n.tags || []).forEach(t => { if (t) freq[t] = (freq[t] || 0) + 1; }));
+  } else {
+    ['护肤', '美食', '旅行', '穿搭', '好物', '健身', '生活', '美妆', '分享', '种草'].forEach((t, i) => {
+      freq[t] = 10 - i;
+    });
+  }
+  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 20);
+  const max = sorted[0]?.[1] || 1;
+  const colors = ['#FF2442','#f97316','#8b5cf6','#06b6d4','#22c55e','#ec4899'];
+  const el = document.getElementById('tagCloud');
+  el.innerHTML = sorted.map(([t, c], i) => {
+    const size = 11 + Math.round((c / max) * 6);
+    const col = colors[i % colors.length];
+    return `<span class="tag-item" style="font-size:${size}px;color:${col};background:${col}15;border-color:${col}40;" 
+      onclick="tagSearch('${escHtml(t)}')" title="点击搜索「${escHtml(t)}」">
+      #${escHtml(t)} <small>(${c})</small>
+    </span>`;
+  }).join('');
+}
+
+function tagSearch(tag) {
+  addKeyword(tag);
+  startSearch();
+}
+
+function renderTypeChart(notes) {
+  const imgCount = notes.filter(n => n.type !== 'video').length || 70;
+  const vidCount = notes.filter(n => n.type === 'video').length || 30;
+  typeChart.data.datasets[0].data = [imgCount, vidCount];
+  typeChart.update();
+}
+
+function renderInsights(notes) {
+  if (!notes.length) return;
+  const insights = [];
+  const avgLike = notes.reduce((s, n) => s + n.likes, 0) / notes.length;
+  const avgCollect = notes.reduce((s, n) => s + n.collects, 0) / notes.length;
+  const hotNotes = notes.filter(n => n.likes >= 1000);
+  const videoNotes = notes.filter(n => n.type === 'video');
+  const engRate = (notes.reduce((s, n) => s + (n.likes > 0 ? (n.collects + n.comments) / n.likes * 100 : 0), 0) / notes.length).toFixed(1);
+
+  if (hotNotes.length > 0) {
+    const hotAvgLen = Math.round(hotNotes.reduce((s, n) => s + n.title.length, 0) / hotNotes.length);
+    insights.push({ type: 'tip', text: `🔥 爆款笔记（${hotNotes.length}篇）标题平均 ${hotAvgLen} 字，建议标题控制在 20-30 字，前 10 字放核心关键词。` });
+  }
+  if (avgCollect > avgLike * 0.4) {
+    insights.push({ type: 'tip', text: `📌 收藏率高达 ${(avgCollect/avgLike*100).toFixed(0)}%，说明干货类/教程类内容在该领域有极强需求，可多做 "保姆级攻略" 内容。` });
+  }
+  if (videoNotes.length > notes.length * 0.3) {
+    const videoAvgLike = videoNotes.reduce((s, n) => s + n.likes, 0) / videoNotes.length;
+    insights.push({ type: 'tip', text: `🎬 视频笔记占比 ${Math.round(videoNotes.length / notes.length * 100)}%，视频平均点赞 ${fmtNum(Math.round(videoAvgLike))}，建议加大视频内容比例。` });
+  }
+  if (parseFloat(engRate) < 5) {
+    insights.push({ type: 'warn', text: `⚠️ 当前互动率 ${engRate}% 低于行业均值（5%）。建议：结尾设置引导评论的问题，增加互动性内容。` });
+  } else {
+    insights.push({ type: 'info', text: `✅ 互动率 ${engRate}% 高于行业均值，说明内容与用户高度契合。建议保持内容风格一致性并加快发布频率。` });
+  }
+  const allTags = notes.flatMap(n => n.tags || []);
+  const freq = {};
+  allTags.forEach(t => { if(t) freq[t] = (freq[t]||0)+1; });
+  const top3Tags = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([t])=>t);
+  if (top3Tags.length) {
+    insights.push({ type: 'info', text: `🏷️ 高频话题标签：#${top3Tags.join(' #')}，建议每篇笔记包含 5-8 个话题标签，覆盖品类词+场景词+人群词。` });
+  }
+
+  const colors = { tip: 'var(--red)', warn: '#f97316', info: '#3b82f6' };
+  document.getElementById('insightList').innerHTML = insights.map(ins =>
+    `<div class="insight-item ${ins.type}">${ins.text}</div>`
+  ).join('');
+}
+
+// ========== PRODUCT INSIGHT ENGINE ==========
+
+// 产品形态词库（从标题/描述中识别）
+const PRODUCT_FORM_WORDS = [
+  '冰箱贴','书签','收纳册','邮票','纪念章','挂件','摆件','钥匙扣','贴纸','明信片',
+  '手账本','胶带','印章','徽章','折扇','香薰','周边','手办','卡片','便签',
+  '日历','台历','笔记本','相册','文件夹','磁贴','贴片','旋转','立体','套装',
+  '毛绒','玩具','玩偶','公仔','盲盒','手袋','帆布袋','帆布包','托特包','单肩包',
+  '发夹','发箍','发饰','耳环','项链','手链','戒指','胸针','别针','吊坠',
+  '杯子','马克杯','保温杯','水杯','手账','便携','折叠','磁吸','透明',
+  '护肤品','面膜','精华','乳液','洁面','口红','眼影','腮红','粉底','隔离',
+  '零食','饮料','咖啡','茶','果茶','甜点','蛋糕','饼干','糖果','巧克力',
+  '上衣','裤子','裙子','外套','卫衣','羽绒服','风衣','大衣','毛衣','针织',
+  '运动鞋','帆布鞋','凉鞋','高跟鞋','靴子','板鞋','老爹鞋','豆豆鞋',
+  '包包','双肩包','斜挎包','腰包','钱包','行李箱','旅行袋',
+  '文创','周边','限定','联名','复古','国潮','ins风','小清新','少女心','可爱'
+];
+
+// 卖点词库
+const SELLING_POINT_WORDS = [
+  '解压','互动','旋转','可折叠','磁吸','发光','香味','多功能','收纳',
+  '超薄','轻便','大容量','防水','耐磨','透气','柔软','挺括',
+  '显白','提亮','遮瑕','保湿','美白','抗老','修复',
+  '爆款','热销','断货','补货','限量','联名','定制',
+  '植绒','金属','哑光','高级感','质感','丝滑','浮雕','镀金','镀银',
+  '手感好','颜值高','性价比','超值','划算','实用',
+  '小众','独特','设计感','文艺','治愈','减压','好看',
+  '不撞款','ins风','复古','国潮','仙女感','少女心',
+  '简约','百搭','显瘦','显高','修身','宽松','舒适',
+  '送礼','礼盒','礼物','伴手礼','节日','生日','纪念'
+];
+
+// 场景词库
+const SCENE_PATTERNS = [
+  { pattern: /工位|办公|桌面|书桌/, label: '办公治愈', icon: '💼' },
+  { pattern: /旅行|出行|旅游|打卡|纪念/, label: '旅行打卡', icon: '✈️' },
+  { pattern: /礼物|送人|送礼|生日|节日|情人节|圣诞|闺蜜|朋友/, label: '情感礼品', icon: '🎁' },
+  { pattern: /家居|装饰|布置|家里|房间|卧室|客厅/, label: '家居装饰', icon: '🏠' },
+  { pattern: /手账|收纳|整理|记录|日记/, label: '手账收纳', icon: '📔' },
+  { pattern: /拍照|拍摄|素材|背景|氛围/, label: '拍照道具', icon: '📸' },
+  { pattern: /学习|读书|文具|学生|考试/, label: '学习文具', icon: '📚' },
+  { pattern: /户外|运动|健身|瑜伽|跑步/, label: '运动健身', icon: '🏃' },
+  { pattern: /美妆|化妆|护肤|日常|晨间|夜间/, label: '美妆护肤', icon: '💄' },
+  { pattern: /厨房|烹饪|烘焙|做饭|料理/, label: '厨房美食', icon: '🍳' },
+];
+
+function extractWordFreq(notes, wordList) {
+  const freq = {};
+  notes.forEach(n => {
+    const text = (n.title + ' ' + (n.desc || '') + ' ' + (n.tags || []).join(' ')).toLowerCase();
+    wordList.forEach(w => {
+      if (text.includes(w.toLowerCase())) {
+        freq[w] = (freq[w] || 0) + 1;
+      }
+    });
+  });
+  return Object.entries(freq).sort((a, b) => b[1] - a[1]);
+}
+
+function renderProductKeywords(notes) {
+  const el = document.getElementById('productKeywords');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后自动提取产品形态词</div>'; return; }
+  
+  const freq = extractWordFreq(notes, PRODUCT_FORM_WORDS).slice(0, 15);
+  if (!freq.length) {
+    el.innerHTML = '<div class="placeholder-tip">当前数据中未提取到明显产品形态词，可尝试更换关键词</div>';
+    return;
+  }
+  const max = freq[0][1];
+  const colors = ['#FF2442','#f97316','#f59e0b','#22c55e','#3b82f6','#8b5cf6','#ec4899'];
+  el.innerHTML = `<div class="kw-rank-list">` + freq.map(([w, c], i) => {
+    const col = colors[Math.min(i, colors.length - 1)];
+    const noClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+    return `<div class="kw-rank-item">
+      <div class="kw-rank-no ${noClass}">${i + 1}</div>
+      <div class="kw-rank-word">${escHtml(w)}</div>
+      <div class="kw-rank-bar-wrap">
+        <div class="kw-rank-bar" style="width:${Math.round(c/max*100)}%;background:${col};"></div>
+      </div>
+      <div class="kw-rank-count">×${c}</div>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+function renderSellingPoints(notes) {
+  const el = document.getElementById('sellingPoints');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后提取核心卖点词</div>'; return; }
+  
+  const freq = extractWordFreq(notes, SELLING_POINT_WORDS).slice(0, 20);
+  if (!freq.length) {
+    el.innerHTML = '<div class="placeholder-tip">未提取到明显卖点词</div>';
+    return;
+  }
+  const max = freq[0][1];
+  const palette = [
+    ['#FF2442','#fff0f2'],['#f97316','#fff7ed'],['#8b5cf6','#f5f3ff'],
+    ['#06b6d4','#ecfeff'],['#22c55e','#f0fdf4'],['#ec4899','#fdf2f8'],
+    ['#f59e0b','#fffbeb']
+  ];
+  el.innerHTML = `<div class="selling-tag-wrap">` + freq.map(([w, c], i) => {
+    const [fg, bg] = palette[i % palette.length];
+    const opacity = 0.5 + 0.5 * (c / max);
+    return `<span class="selling-tag" style="color:${fg};background:${bg};border:1px solid ${fg}30;opacity:${opacity.toFixed(2)};">
+      ${escHtml(w)}<span class="stag-count">${c}</span>
+    </span>`;
+  }).join('') + `</div>`;
+}
+
+function renderSceneWords(notes) {
+  const el = document.getElementById('sceneWords');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后提取使用场景</div>'; return; }
+  
+  const sceneCounts = SCENE_PATTERNS.map(sp => {
+    const count = notes.filter(n => {
+      const text = n.title + ' ' + (n.desc || '') + ' ' + (n.tags || []).join(' ');
+      return sp.pattern.test(text);
+    }).length;
+    return { ...sp, count };
+  }).filter(s => s.count > 0).sort((a, b) => b.count - a.count);
+  
+  if (!sceneCounts.length) {
+    el.innerHTML = '<div class="placeholder-tip">未提取到明显使用场景词</div>';
+    return;
+  }
+  el.innerHTML = `<div class="scene-list">` + sceneCounts.map(s =>
+    `<div class="scene-item">
+      <span class="scene-icon">${s.icon}</span>
+      <span class="scene-text">${s.label}</span>
+      <span class="scene-freq">${s.count} 篇</span>
+    </div>`
+  ).join('') + `</div>`;
+}
+
+// 产品洞察Tab中的互动分布图（使用独立Canvas）
+let engDistChart = null;
+function initEngDistChart() {
+  const ctx = document.getElementById('engDistChart').getContext('2d');
+  engDistChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw} 篇` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+function renderEngDistChart(notes) {
+  if (!engDistChart || !notes.length) return;
+  const buckets = [
+    { label: '0-100', min: 0, max: 100, color: '#fca5a5' },
+    { label: '100-1K', min: 100, max: 1000, color: '#fb923c' },
+    { label: '1K-5K', min: 1000, max: 5000, color: '#FF6B81' },
+    { label: '5K-2W', min: 5000, max: 20000, color: '#FF2442' },
+    { label: '2W+', min: 20000, max: Infinity, color: '#cc0028' },
+  ];
+  const counts = buckets.map(b => notes.filter(n => n.likes >= b.min && n.likes < b.max).length);
+  engDistChart.data.labels = buckets.map(b => b.label);
+  engDistChart.data.datasets[0] = { data: counts, backgroundColor: buckets.map(b => b.color), borderRadius: 4, borderSkipped: false };
+  engDistChart.update();
+}
+
+function renderProductReport(notes) {
+  const el = document.getElementById('productReport');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后自动生成产品开发洞察简报</div>'; return; }
+  
+  const keyword = state.keywords.join(' / ') || '未知关键词';
+  const totalNotes = notes.length;
+  const hotNotes = notes.filter(n => n.likes >= 1000);
+  const videoNotes = notes.filter(n => n.type === 'video');
+  const avgLikes = Math.round(notes.reduce((s, n) => s + n.likes, 0) / totalNotes);
+  const avgCollects = Math.round(notes.reduce((s, n) => s + n.collects, 0) / totalNotes);
+  
+  // 产品形态TOP3
+  const productFreq = extractWordFreq(notes, PRODUCT_FORM_WORDS).slice(0, 3);
+  // 卖点TOP5
+  const sellingFreq = extractWordFreq(notes, SELLING_POINT_WORDS).slice(0, 5);
+  // 场景TOP3
+  const sceneTop = SCENE_PATTERNS.map(sp => ({
+    ...sp,
+    count: notes.filter(n => sp.pattern.test(n.title + ' ' + (n.desc||'') + ' ' + (n.tags||[]).join(' '))).length
+  })).filter(s => s.count > 0).sort((a,b) => b.count - a.count).slice(0, 3);
+  
+  // 互动最高的笔记（爆款案例）
+  const topNote = [...notes].sort((a, b) => b.likes - a.likes)[0];
+  
+  const now = new Date().toLocaleDateString('zh-CN');
+  
+  el.innerHTML = `<div class="product-report">
+    <div style="font-size:11px;color:var(--text-mute);margin-bottom:12px;">
+      📅 生成时间：${now} · 关键词：<strong>${escHtml(keyword)}</strong> · 共分析 ${totalNotes} 篇笔记
+    </div>
+    
+    <div class="report-section">
+      <div class="report-section-title">🔥 热点产品形态</div>
+      ${productFreq.length ? productFreq.map(([w, c], i) => {
+        const pct = Math.round(c / totalNotes * 100);
+        return `<div class="report-item ${i === 0 ? 'highlight' : ''}">
+          <strong>#${i+1} ${escHtml(w)}</strong> — 在 ${c} 篇笔记中出现（占 ${pct}%）
+        </div>`;
+      }).join('') : '<div class="report-item">当前数据未识别到明显产品形态词，建议换用更具体的产品类目关键词搜索。</div>'}
+    </div>
+    
+    <div class="report-section">
+      <div class="report-section-title">💬 核心卖点词</div>
+      <div class="report-item">
+        高频卖点：${sellingFreq.length ? sellingFreq.map(([w,c]) => `<strong>${escHtml(w)}</strong>(${c}次)`).join('、') : '暂未提取到'}
+      </div>
+    </div>
+    
+    <div class="report-section">
+      <div class="report-section-title">🎯 主要使用场景</div>
+      ${sceneTop.length ? sceneTop.map(s =>
+        `<div class="report-item">${s.icon} <strong>${escHtml(s.label)}</strong> — 涉及 ${s.count} 篇笔记</div>`
+      ).join('') : '<div class="report-item">场景词识别较少，建议在搜索结果中人工补充场景判断。</div>'}
+    </div>
+    
+    <div class="report-section">
+      <div class="report-section-title">📊 数据概况</div>
+      <div class="report-item ${hotNotes.length >= 3 ? 'success' : ''}">
+        爆款笔记（>1K赞）：<strong>${hotNotes.length} 篇</strong>（占 ${Math.round(hotNotes.length/totalNotes*100)}%）
+        · 平均点赞 <strong>${fmtNum(avgLikes)}</strong> · 平均收藏 <strong>${fmtNum(avgCollects)}</strong>
+      </div>
+      <div class="report-item">
+        视频内容占比 <strong>${Math.round(videoNotes.length/totalNotes*100)}%</strong>，
+        图文占 <strong>${Math.round((totalNotes-videoNotes.length)/totalNotes*100)}%</strong>
+      </div>
+    </div>
+    
+    ${topNote ? `<div class="report-section">
+      <div class="report-section-title">⭐ 最高互动案例</div>
+      <div class="report-item highlight">
+        <div><strong>${escHtml(topNote.title)}</strong></div>
+        <div style="margin-top:4px;font-size:11px;">
+          👍 ${fmtNum(topNote.likes)} 点赞 · ⭐ ${fmtNum(topNote.collects)} 收藏 · 作者：${escHtml(topNote.author)}
+        </div>
+        <a href="${escHtml(topNote.url)}" target="_blank" rel="noopener" 
+          style="font-size:11px;color:var(--red);display:inline-block;margin-top:4px;">→ 查看原文</a>
+      </div>
+    </div>` : ''}
+    
+    <div class="report-section">
+      <div class="report-section-title">💡 开发建议</div>
+      ${productFreq.length ? `<div class="report-item success">
+        ✅ 优先关注「${escHtml(productFreq[0][0])}」品类，市场热度高，可考虑优先开发或优化。
+      </div>` : ''}
+      ${sellingFreq.length >= 3 ? `<div class="report-item">
+        📌 设计时重点突出「${sellingFreq.slice(0,3).map(([w])=>w).join('」「')}」等卖点，是当前用户最关注的属性。
+      </div>` : ''}
+      ${sceneTop.length ? `<div class="report-item">
+        🎯 主打「${sceneTop[0].label}」场景切入，可针对该场景制作专题内容。
+      </div>` : ''}
+      <div class="report-item warning">
+        ⚠️ 以上分析基于小红书笔记标题/描述，建议结合人工判断与实际销售数据综合验证。
+      </div>
+    </div>
+  </div>`;
+}
+
+// 主入口：渲染所有产品洞察模块
+function renderProductInsights(notes) {
+  renderProductKeywords(notes);
+  renderSellingPoints(notes);
+  renderSceneWords(notes);
+  renderEngDistChart(notes);
+  renderProductReport(notes);
+}
+
+// 导出产品洞察简报
+function exportProductReport() {
+  if (!state.notes.length) { toast('暂无数据', 'warning'); return; }
+  const el = document.getElementById('productReport');
+  const text = el.innerText;
+  const keyword = state.keywords.join('_') || 'keyword';
+  const now = new Date().toLocaleDateString('zh-CN').replace(/\//g, '-');
+  downloadFile(text, `产品洞察简报_${keyword}_${now}.txt`, 'text/plain;charset=utf-8');
+  toast('简报已导出', 'success');
+}
+
+function toggleCachePanel() {
+  const panel = document.getElementById('cachePanel');
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none';
+  panel.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) updateCachePanel();
+}
+
+// ========== LOCAL CACHE ENGINE ==========
+const CACHE_NS = 'xhs_analysis_cache_';
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24小时
+
+function cacheKey(keywords, days, count) {
+  return CACHE_NS + keywords.sort().join(',') + '_d' + days + '_n' + count;
+}
+
+function saveCache(keywords, days, count, notes) {
+  try {
+    const key = cacheKey(keywords, days, count);
+    const payload = {
+      ts: Date.now(),
+      keywords, days, count,
+      notes,
+      keywordType: state.keywordType
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
+    // 维护索引
+    const idx = getCacheIndex();
+    idx[key] = { ts: payload.ts, keywords, days, count, size: notes.length };
+    localStorage.setItem(CACHE_NS + 'index', JSON.stringify(idx));
+    updateCachePanel();
+  } catch(e) {
+    console.warn('Cache save failed:', e);
+  }
+}
+
+function loadCache(keywords, days, count) {
+  try {
+    const key = cacheKey(keywords, days, count);
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (Date.now() - payload.ts > CACHE_TTL) return null; // expired
+    return payload;
+  } catch(e) { return null; }
+}
+
+function getCacheIndex() {
+  try {
+    return JSON.parse(localStorage.getItem(CACHE_NS + 'index') || '{}');
+  } catch(e) { return {}; }
+}
+
+function clearAllCache() {
+  const idx = getCacheIndex();
+  Object.keys(idx).forEach(k => localStorage.removeItem(k));
+  localStorage.removeItem(CACHE_NS + 'index');
+  updateCachePanel();
+  toast('缓存已清空', 'success');
+}
+
+function clearExpiredCache() {
+  const idx = getCacheIndex();
+  let cleared = 0;
+  Object.entries(idx).forEach(([k, v]) => {
+    if (Date.now() - v.ts > CACHE_TTL) {
+      localStorage.removeItem(k);
+      delete idx[k];
+      cleared++;
+    }
+  });
+  localStorage.setItem(CACHE_NS + 'index', JSON.stringify(idx));
+  updateCachePanel();
+  if (cleared > 0) toast(`已清理 ${cleared} 条过期缓存`, 'success');
+}
+
+function updateCachePanel() {
+  const panel = document.getElementById('cachePanelList');
+  if (!panel) return;
+  const idx = getCacheIndex();
+  const entries = Object.entries(idx).sort((a,b) => b[1].ts - a[1].ts);
+  if (!entries.length) {
+    panel.innerHTML = '<div class="placeholder-tip">暂无缓存记录</div>';
+    document.getElementById('cachePanelCount').textContent = '0 条';
+    return;
+  }
+  document.getElementById('cachePanelCount').textContent = entries.length + ' 条';
+  panel.innerHTML = entries.map(([k, v]) => {
+    const age = Date.now() - v.ts;
+    const expired = age > CACHE_TTL;
+    const timeStr = new Date(v.ts).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    const ageMins = Math.round(age / 60000);
+    const ageStr = ageMins < 60 ? ageMins + ' 分钟前' : Math.round(ageMins/60) + ' 小时前';
+    return `<div class="cache-entry ${expired ? 'expired' : ''}">
+      <div class="cache-entry-top">
+        <span class="cache-kw">${escHtml(v.keywords.join(' + '))}</span>
+        <span class="cache-badge ${expired ? 'expired' : ''}">
+          ${expired ? '⏰ 已过期' : '✓ 有效'}
+        </span>
+      </div>
+      <div class="cache-entry-meta">
+        ${v.size} 篇 · ${v.days}天 · ${timeStr} (${ageStr})
+        ${!expired ? `<button class="cache-use-btn" onclick="useCachedSearch('${k}')">使用缓存</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function useCachedSearch(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) { toast('缓存已失效', 'warning'); return; }
+    const payload = JSON.parse(raw);
+    if (Date.now() - payload.ts > CACHE_TTL) { toast('缓存已过期', 'warning'); return; }
+    
+    // 恢复状态
+    state.keywords = payload.keywords;
+    state.days = payload.days;
+    state.count = payload.count;
+    state.notes = payload.notes;
+    state.page = 1;
+    
+    renderKeywordTags();
+    renderNotes();
+    updateStats();
+    renderAnalysis();
+    
+    document.getElementById('exportBar').style.display = 'flex';
+    document.getElementById('exportInfo').textContent = `共 ${state.notes.length} 条（从缓存加载），缓存时间：${new Date(payload.ts).toLocaleString('zh-CN')}`;
+    toast(`已从缓存加载 ${state.notes.length} 篇笔记`, 'success');
+    
+    // 关闭缓存面板
+    document.getElementById('cachePanel').style.display = 'none';
+  } catch(e) {
+    toast('缓存加载失败：' + e.message, 'error');
+  }
+}
+
+// ========== CONSUMER INSIGHTS ENGINE ==========
+
+// 情感词典
+const POSITIVE_WORDS = [
+  '好看','漂亮','精致','质感','高级','可爱','治愈','解压','喜欢','爱了','必入','超值',
+  '推荐','好用','实用','耐用','惊艳','满意','完美','棒','赞','不错','真的好','绝了',
+  '独特','创意','别致','文艺','小众','ins','仙女','少女','甜美','清新','复古','国潮',
+  '送礼好物','性价比高','颜值在线','手感好','细节好','用料好','做工好','超级喜欢',
+  '买到就是赚','不愧是','种草','入手','拔草','值得','买了后悔没早买'
+];
+
+const NEGATIVE_WORDS = [
+  '贵','太贵','不值','坑','踩雷','差评','失望','后悔','退货','品质差','做工差',
+  '易碎','褪色','掉漆','掉色','变形','发霉','味道大','气味','甲醛','山寨','仿品',
+  '货不对版','虚标','掉毛','起球','缩水','色差','假货','劣质','难用','不实用',
+  '看起来美用起来难','不如照片','夸张了','没想象中好','太普通','随处可见'
+];
+
+const NEED_WORDS = [
+  '希望','想要','求推荐','有没有','哪里买','在哪买','多少钱','价格','便宜','实惠',
+  '耐用','安全','环保','无味','防水','防尘','易清洁','收纳','方便携带','轻便',
+  '可定制','个性化','联名','限定','独家','设计感','功能','多用途','好清洗'
+];
+
+const PAIN_WORDS = [
+  '不够','缺少','没有','断货','买不到','绝版','太少','难找','贵了','性价比低',
+  '质量不稳定','参差不齐','假货多','难辨真假','尺寸问题','颜色不准','味道难闻',
+  '包装简陋','容易坏','工艺粗糙','细节粗糙','做工一般','和图片不符','有色差',
+  '快递损坏','包装不好','运费贵','发货慢','售后差'
+];
+
+// 主题词库
+const TOPIC_CLUSTERS = [
+  {
+    id: 'brand', label: '品牌营销', icon: '🏷️', color: '#3b82f6',
+    words: ['联名','品牌','官方','正版','周边','限量','合作','联动','IP','授权','旗舰店']
+  },
+  {
+    id: 'diy', label: 'DIY创意', icon: '✂️', color: '#8b5cf6',
+    words: ['DIY','手工','自制','制作','拼贴','改造','创意','定制','手作','原创','设计']
+  },
+  {
+    id: 'collect', label: '收藏打卡', icon: '📸', color: '#06b6d4',
+    words: ['收藏','打卡','合集','纪念','收集','成套','系列','全套','拍照','晒单','开箱']
+  },
+  {
+    id: 'gift', label: '礼物送人', icon: '🎁', color: '#ec4899',
+    words: ['送礼','礼物','伴手礼','生日','节日','情人节','圣诞','闺蜜','朋友','家人','男友']
+  },
+  {
+    id: 'travel', label: '旅行文创', icon: '✈️', color: '#f59e0b',
+    words: ['旅行','旅游','出行','景区','城市','地标','纪念品','文创','博物馆','故宫','敦煌']
+  },
+  {
+    id: 'home', label: '家居装饰', icon: '🏠', color: '#22c55e',
+    words: ['家居','装饰','布置','卧室','客厅','房间','桌面','工位','办公','摆件','挂件']
+  },
+];
+
+// 地域关键词
+const REGION_WORDS = [
+  { region: '北京', words: ['北京','故宫','天坛','长城','颐和园','798'] },
+  { region: '上海', words: ['上海','外滩','陆家嘴','迪士尼','豫园','南京路'] },
+  { region: '广州', words: ['广州','广东','粤','珠江','陈家祠','荔湾'] },
+  { region: '深圳', words: ['深圳','大湾区','华强北','OCT'] },
+  { region: '成都', words: ['成都','四川','川','天府','宽窄巷子','太古里'] },
+  { region: '杭州', words: ['杭州','西湖','浙江','断桥','龙井'] },
+  { region: '南京', words: ['南京','江苏','夫子庙','中山陵'] },
+  { region: '西安', words: ['西安','陕西','兵马俑','大唐不夜城','长安'] },
+  { region: '重庆', words: ['重庆','山城','洪崖洞','解放碑'] },
+  { region: '武汉', words: ['武汉','湖北','黄鹤楼','东湖'] },
+];
+
+function analyzeSentiment(notes) {
+  let pos = 0, neg = 0, neu = 0;
+  const posNotes = [], negNotes = [];
+  notes.forEach(n => {
+    const text = (n.title + ' ' + (n.desc || '') + ' ' + (n.tags||[]).join(' ')).toLowerCase();
+    const pScore = POSITIVE_WORDS.filter(w => text.includes(w)).length;
+    const nScore = NEGATIVE_WORDS.filter(w => text.includes(w)).length;
+    if (pScore > nScore) { pos++; if (posNotes.length < 2) posNotes.push(n); }
+    else if (nScore > pScore) { neg++; if (negNotes.length < 2) negNotes.push(n); }
+    else neu++;
+  });
+  return { pos, neg, neu, total: notes.length, posNotes, negNotes };
+}
+
+function renderSentimentPanel(notes) {
+  const el = document.getElementById('sentimentPanel');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后自动分析情感观点</div>'; return; }
+  
+  const { pos, neg, neu, total, posNotes, negNotes } = analyzeSentiment(notes);
+  const posPct = Math.round(pos/total*100);
+  const negPct = Math.round(neg/total*100);
+  const neuPct = 100 - posPct - negPct;
+  
+  el.innerHTML = `
+    <div class="sentiment-legend">
+      <div class="sentiment-legend-item">
+        <div class="sentiment-dot" style="background:#22c55e;"></div>
+        <span class="sentiment-pct" style="color:#16a34a;">${posPct}%</span>
+        <span>正向</span>
+      </div>
+      <div class="sentiment-legend-item">
+        <div class="sentiment-dot" style="background:#f43f5e;"></div>
+        <span class="sentiment-pct" style="color:#e11d48;">${negPct}%</span>
+        <span>负向</span>
+      </div>
+      <div class="sentiment-legend-item">
+        <div class="sentiment-dot" style="background:#94a3b8;"></div>
+        <span class="sentiment-pct" style="color:#475569;">${neuPct}%</span>
+        <span>中性</span>
+      </div>
+    </div>
+    <div class="sentiment-bar-wrap">
+      <div class="sentiment-seg" style="width:${posPct}%;background:#22c55e;"></div>
+      <div class="sentiment-seg" style="width:${neuPct}%;background:#94a3b8;"></div>
+      <div class="sentiment-seg" style="width:${negPct}%;background:#f43f5e;"></div>
+    </div>
+    <div class="sentiment-cards">
+      ${posNotes.length ? `<div class="sentiment-card pos">
+        <strong>✅ 正向代表笔记</strong>
+        ${posNotes.map(n => `<div style="margin-top:4px;">「${escHtml(n.title.substring(0,40))}${n.title.length>40?'…':''}」<span style="font-size:10px;opacity:.7;"> ${fmtNum(n.likes)}赞</span></div>`).join('')}
+      </div>` : ''}
+      ${negNotes.length ? `<div class="sentiment-card neg">
+        <strong>⚠️ 负向代表笔记</strong>
+        ${negNotes.map(n => `<div style="margin-top:4px;">「${escHtml(n.title.substring(0,40))}${n.title.length>40?'…':''}」<span style="font-size:10px;opacity:.7;"> ${fmtNum(n.likes)}赞</span></div>`).join('')}
+      </div>` : ''}
+      ${neg === 0 ? `<div class="sentiment-card pos"><strong>🎉 情感整体正向</strong><div style="margin-top:4px;">当前数据中负面评价极少，产品口碑良好。</div></div>` : ''}
+    </div>`;
+}
+
+function renderTopicCluster(notes) {
+  const el = document.getElementById('topicCluster');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后自动聚类主题</div>'; return; }
+  
+  const counts = TOPIC_CLUSTERS.map(tc => {
+    const count = notes.filter(n => {
+      const text = n.title + ' ' + (n.desc||'') + ' ' + (n.tags||[]).join(' ');
+      return tc.words.some(w => text.includes(w));
+    }).length;
+    const topWords = tc.words.filter(w => notes.some(n => 
+      (n.title+(n.desc||'')+(n.tags||[]).join('')).includes(w)
+    )).slice(0, 4);
+    return { ...tc, count, topWords };
+  }).filter(t => t.count > 0).sort((a,b) => b.count - a.count);
+  
+  const total = notes.length;
+  if (!counts.length) { el.innerHTML = '<div class="placeholder-tip">未识别到明显主题聚类</div>'; return; }
+  
+  el.innerHTML = `<div class="topic-grid">` + counts.slice(0, 6).map(t => {
+    const pct = Math.round(t.count/total*100);
+    return `<div class="topic-card">
+      <div class="topic-card-header">
+        <span class="topic-name">${t.icon} ${t.label}</span>
+        <span class="topic-pct">${pct}%</span>
+      </div>
+      <div class="topic-bar" style="width:${pct}%;background:${t.color};"></div>
+      <div class="topic-words">${t.topWords.join(' · ')}</div>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+function renderUserPortrait(notes) {
+  const el = document.getElementById('userPortrait');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后生成用户画像</div>'; return; }
+  
+  // 内容偏好（基于互动量加权）
+  const videoNotes = notes.filter(n => n.type === 'video');
+  const imageNotes = notes.filter(n => n.type !== 'video');
+  const videoAvgLikes = videoNotes.length ? Math.round(videoNotes.reduce((s,n)=>s+n.likes,0)/videoNotes.length) : 0;
+  const imageAvgLikes = imageNotes.length ? Math.round(imageNotes.reduce((s,n)=>s+n.likes,0)/imageNotes.length) : 0;
+  const totalLikes = Math.max(videoAvgLikes + imageAvgLikes, 1);
+  
+  // 地域分布（从标题/标签推断）
+  const regionCounts = REGION_WORDS.map(r => {
+    const cnt = notes.filter(n => r.words.some(w => (n.title+(n.desc||'')+(n.tags||[]).join('')).includes(w))).length;
+    return { ...r, cnt };
+  }).filter(r => r.cnt > 0).sort((a,b) => b.cnt - a.cnt).slice(0, 5);
+  
+  // 互动层次分析
+  const highEngNotes = notes.filter(n => n.likes >= 5000).length;
+  const midEngNotes = notes.filter(n => n.likes >= 500 && n.likes < 5000).length;
+  const lowEngNotes = notes.filter(n => n.likes < 500).length;
+  const maxEng = Math.max(highEngNotes, midEngNotes, lowEngNotes, 1);
+  
+  el.innerHTML = `
+    <div class="portrait-section">
+      <div class="portrait-label">内容类型偏好</div>
+      <div class="portrait-bars">
+        <div class="portrait-row">
+          <span class="portrait-row-label">📹 视频</span>
+          <div class="portrait-row-bar-wrap"><div class="portrait-row-bar" style="width:${Math.round(videoAvgLikes/totalLikes*100)}%;background:#FF2442;"></div></div>
+          <span class="portrait-row-val">${videoNotes.length}篇</span>
+        </div>
+        <div class="portrait-row">
+          <span class="portrait-row-label">🖼️ 图文</span>
+          <div class="portrait-row-bar-wrap"><div class="portrait-row-bar" style="width:${Math.round(imageAvgLikes/totalLikes*100)}%;background:#3b82f6;"></div></div>
+          <span class="portrait-row-val">${imageNotes.length}篇</span>
+        </div>
+      </div>
+    </div>
+    ${regionCounts.length ? `
+    <div class="portrait-section">
+      <div class="portrait-label">地域内容分布</div>
+      <div class="portrait-bars">
+        ${regionCounts.map(r => {
+          const pct = Math.round(r.cnt/notes.length*100);
+          return `<div class="portrait-row">
+            <span class="portrait-row-label">${r.region}</span>
+            <div class="portrait-row-bar-wrap"><div class="portrait-row-bar" style="width:${Math.min(pct*3,100)}%;background:#8b5cf6;"></div></div>
+            <span class="portrait-row-val">${pct}%</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+    <div class="portrait-section">
+      <div class="portrait-label">互动量层次分布</div>
+      <div class="portrait-bars">
+        <div class="portrait-row">
+          <span class="portrait-row-label">🔥 高热</span>
+          <div class="portrait-row-bar-wrap"><div class="portrait-row-bar" style="width:${Math.round(highEngNotes/maxEng*100)}%;background:#FF2442;"></div></div>
+          <span class="portrait-row-val">${highEngNotes}篇</span>
+        </div>
+        <div class="portrait-row">
+          <span class="portrait-row-label">⚡ 中热</span>
+          <div class="portrait-row-bar-wrap"><div class="portrait-row-bar" style="width:${Math.round(midEngNotes/maxEng*100)}%;background:#f59e0b;"></div></div>
+          <span class="portrait-row-val">${midEngNotes}篇</span>
+        </div>
+        <div class="portrait-row">
+          <span class="portrait-row-label">💤 低热</span>
+          <div class="portrait-row-bar-wrap"><div class="portrait-row-bar" style="width:${Math.round(lowEngNotes/maxEng*100)}%;background:#94a3b8;"></div></div>
+          <span class="portrait-row-val">${lowEngNotes}篇</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderDemandPain(notes) {
+  const el = document.getElementById('demandPain');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后提取需求与痛点</div>'; return; }
+  
+  const needFreq = extractWordFreq(notes, NEED_WORDS).slice(0, 8);
+  const painFreq = extractWordFreq(notes, PAIN_WORDS).slice(0, 8);
+  const maxN = needFreq.length ? needFreq[0][1] : 1;
+  const maxP = painFreq.length ? painFreq[0][1] : 1;
+  
+  el.innerHTML = `<div class="demand-grid">
+    <div>
+      <div class="demand-col-title need">💡 用户需求</div>
+      <div class="demand-word-list">
+        ${needFreq.length ? needFreq.map(([w,c]) => `
+          <div class="demand-word-item">
+            <span class="dw-label">${escHtml(w)}</span>
+            <div class="dw-bar-wrap"><div class="dw-bar" style="width:${Math.round(c/maxN*100)}%;background:#3b82f6;"></div></div>
+            <span class="dw-count">${c}</span>
+          </div>`).join('') : '<div style="font-size:11px;color:var(--text-mute);">无明显需求词</div>'}
+      </div>
+    </div>
+    <div>
+      <div class="demand-col-title pain">⚠️ 用户痛点</div>
+      <div class="demand-word-list">
+        ${painFreq.length ? painFreq.map(([w,c]) => `
+          <div class="demand-word-item">
+            <span class="dw-label">${escHtml(w)}</span>
+            <div class="dw-bar-wrap"><div class="dw-bar" style="width:${Math.round(c/maxP*100)}%;background:#f43f5e;"></div></div>
+            <span class="dw-count">${c}</span>
+          </div>`).join('') : '<div style="font-size:11px;color:var(--text-mute);">无明显痛点词</div>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+// 互动行为偏好图（消费者Tab）
+let behaviorChart = null;
+function initBehaviorChart() {
+  const ctx = document.getElementById('behaviorChart').getContext('2d');
+  behaviorChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: ['点赞', '收藏', '评论', '视频偏好', '图文偏好', '高互动'],
+      datasets: [{
+        label: '互动特征',
+        data: [0,0,0,0,0,0],
+        backgroundColor: 'rgba(255,36,66,0.15)',
+        borderColor: '#FF2442',
+        borderWidth: 2,
+        pointBackgroundColor: '#FF2442',
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        r: {
+          beginAtZero: true,
+          grid: { color: '#f0f0f0' },
+          ticks: { font: { size: 9 }, maxTicksLimit: 4 },
+          pointLabels: { font: { size: 10 } }
+        }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+function renderBehaviorChart(notes) {
+  if (!behaviorChart || !notes.length) return;
+  const total = notes.length;
+  const avgLikes = notes.reduce((s,n)=>s+n.likes,0)/total;
+  const avgCollects = notes.reduce((s,n)=>s+n.collects,0)/total;
+  const avgComments = notes.reduce((s,n)=>s+n.comments,0)/total;
+  const videoRatio = notes.filter(n=>n.type==='video').length/total * 100;
+  const imageRatio = notes.filter(n=>n.type!=='video').length/total * 100;
+  const highEngRatio = notes.filter(n=>n.likes>=1000).length/total * 100;
+  
+  // 归一化到0-100
+  const maxVal = Math.max(avgLikes, avgCollects, avgComments, 100);
+  const normalize = v => Math.min(Math.round(v/maxVal*100), 100);
+  
+  behaviorChart.data.datasets[0].data = [
+    normalize(avgLikes),
+    normalize(avgCollects),
+    normalize(avgComments),
+    Math.round(videoRatio),
+    Math.round(imageRatio),
+    Math.round(highEngRatio)
+  ];
+  behaviorChart.update();
+}
+
+function renderConsumerReport(notes) {
+  const el = document.getElementById('consumerReport');
+  if (!notes.length) { el.innerHTML = '<div class="placeholder-tip">搜索后自动生成消费者洞察简报</div>'; return; }
+  
+  const keyword = state.keywords.join(' / ') || '未知关键词';
+  const { pos, neg, neu, total } = analyzeSentiment(notes);
+  const posPct = Math.round(pos/total*100);
+  const negPct = Math.round(neg/total*100);
+  
+  const topTopics = TOPIC_CLUSTERS.map(tc => ({
+    ...tc,
+    count: notes.filter(n => tc.words.some(w => (n.title+(n.desc||'')+(n.tags||[]).join('')).includes(w))).length
+  })).filter(t => t.count > 0).sort((a,b) => b.count - a.count).slice(0, 3);
+  
+  const needTop = extractWordFreq(notes, NEED_WORDS).slice(0, 3);
+  const painTop = extractWordFreq(notes, PAIN_WORDS).slice(0, 3);
+  const now = new Date().toLocaleDateString('zh-CN');
+  
+  el.innerHTML = `<div class="product-report">
+    <div style="font-size:11px;color:var(--text-mute);margin-bottom:12px;">
+      📅 ${now} · 关键词：<strong>${escHtml(keyword)}</strong> · 分析 ${total} 篇笔记
+    </div>
+    
+    <div class="report-section">
+      <div class="report-section-title">❤️ 情感口碑</div>
+      <div class="report-item ${posPct >= 60 ? 'success' : posPct < 40 ? 'warning' : ''}">
+        正向内容占 <strong>${posPct}%</strong>，负向 <strong>${negPct}%</strong>，中性 <strong>${100-posPct-negPct}%</strong>
+        ${posPct >= 60 ? '<br>✅ 整体口碑良好，用户满意度较高' : negPct >= 30 ? '<br>⚠️ 负面声音较多，需关注用户痛点' : ''}
+      </div>
+    </div>
+    
+    ${topTopics.length ? `<div class="report-section">
+      <div class="report-section-title">🗂️ 主要内容方向</div>
+      ${topTopics.map(t => {
+        const pct = Math.round(t.count/total*100);
+        return `<div class="report-item">${t.icon} <strong>${t.label}</strong> — 占比 ${pct}%，涉及 ${t.count} 篇</div>`;
+      }).join('')}
+    </div>` : ''}
+    
+    ${needTop.length ? `<div class="report-section">
+      <div class="report-section-title">💡 核心用户需求</div>
+      <div class="report-item">
+        用户最关注：${needTop.map(([w,c]) => `<strong>${escHtml(w)}</strong>(${c}次)`).join('、')}
+      </div>
+    </div>` : ''}
+    
+    ${painTop.length ? `<div class="report-section">
+      <div class="report-section-title">⚠️ 主要用户痛点</div>
+      <div class="report-item warning">
+        高频痛点：${painTop.map(([w,c]) => `<strong>${escHtml(w)}</strong>(${c}次)`).join('、')}
+        <br><span style="font-size:11px;">→ 建议重点改进以上痛点，可转化为产品差异化优势</span>
+      </div>
+    </div>` : ''}
+    
+    <div class="report-section">
+      <div class="report-section-title">💡 运营建议</div>
+      ${posPct >= 60 ? `<div class="report-item success">✅ 口碑积极，可主动收集用户UGC内容做二次传播，扩大正向影响力。</div>` : ''}
+      ${negPct > 0 ? `<div class="report-item warning">📌 针对负面痛点优化产品/服务，可在内容中主动答疑，减少疑虑。</div>` : ''}
+      ${topTopics[0] ? `<div class="report-item">🎯 「${topTopics[0].label}」是当前最热门内容方向，建议重点布局该类内容。</div>` : ''}
+      <div class="report-item warning">⚠️ 分析基于笔记文本，建议结合用户评论数据进一步验证。</div>
+    </div>
+  </div>`;
+}
+
+function renderConsumerInsights(notes) {
+  renderSentimentPanel(notes);
+  renderTopicCluster(notes);
+  renderUserPortrait(notes);
+  renderDemandPain(notes);
+  renderBehaviorChart(notes);
+  renderConsumerReport(notes);
+}
+
+function exportConsumerReport() {
+  if (!state.notes.length) { toast('暂无数据', 'warning'); return; }
+  const el = document.getElementById('consumerReport');
+  const text = el.innerText;
+  const keyword = state.keywords.join('_') || 'keyword';
+  const now = new Date().toLocaleDateString('zh-CN').replace(/\//g, '-');
+  downloadFile(text, `消费者洞察简报_${keyword}_${now}.txt`, 'text/plain;charset=utf-8');
+  toast('消费者洞察简报已导出', 'success');
+}
+
+// ========== SCENE INSIGHTS (场景词专用) ==========
+function renderSceneInsights(notes) {
+  // 地点提取
+  const locationWords = ['北京', '上海', '广州', '深圳', '杭州', '成都', '重庆', '西安', '厦门', '大理', '丽江', '三亚', '青岛', '苏州', '南京', '长沙', '武汉', '郑州', '天津', '大连', '哈尔滨', '拉萨', '桂林', '张家界', '黄山', '泰山', '西湖', '外滩', '故宫', '长城', '迪士尼', '环球影城', '欢乐谷', '海洋公园', '博物馆', '美术馆', '图书馆', '咖啡馆', '餐厅', '酒吧', '商场', '公园', '海滩', '山区', '古镇', '村落', '民宿', '酒店'];
+  
+  const locationCounts = {};
+  notes.forEach(n => {
+    const text = (n.title + ' ' + (n.desc || '')).toLowerCase();
+    locationWords.forEach(loc => {
+      if (text.includes(loc)) {
+        locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+      }
+    });
+  });
+  
+  const topLocations = Object.entries(locationCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+  
+  // 体验类型分析
+  const experienceTypes = {
+    '美食探店': ['餐厅', '美食', '好吃', '味道', '推荐', '打卡', '探店', '必吃'],
+    '景点打卡': ['景点', '打卡', '拍照', '风景', '美丽', '绝美', '出片'],
+    '住宿体验': ['酒店', '民宿', '住宿', '房间', '环境', '舒适', '干净'],
+    '购物分享': ['购物', '买', '好物', '值得', '推荐', '种草'],
+    '活动参与': ['活动', '展览', '演出', '体验', '参与', '好玩']
+  };
+  
+  const expCounts = {};
+  notes.forEach(n => {
+    const text = (n.title + ' ' + (n.desc || '')).toLowerCase();
+    for (const [type, words] of Object.entries(experienceTypes)) {
+      const matchCount = words.filter(w => text.includes(w)).length;
+      if (matchCount >= 2) {
+        expCounts[type] = (expCounts[type] || 0) + 1;
+      }
+    }
+  });
+  
+  // 更新场景分析面板（如果存在）
+  const scenePanel = document.getElementById('scenePanel');
+  if (scenePanel) {
+    scenePanel.innerHTML = `
+      <div class="analysis-card">
+        <div class="card-title">📍 热门地点 TOP10</div>
+        <div class="location-list">
+          ${topLocations.map(([loc, count], i) => `
+            <div class="location-item">
+              <span class="location-rank">${i + 1}</span>
+              <span class="location-name">${loc}</span>
+              <span class="location-count">${count} 篇</span>
+            </div>
+          `).join('') || '<div class="empty">暂无明确地点数据</div>'}
+        </div>
+      </div>
+      <div class="analysis-card">
+        <div class="card-title">🎯 体验类型分布</div>
+        <div class="exp-types">
+          ${Object.entries(expCounts).map(([type, count]) => `
+            <div class="exp-type-bar">
+              <span class="exp-type-name">${type}</span>
+              <div class="exp-type-progress">
+                <div class="exp-type-fill" style="width: ${Math.min(100, count / notes.length * 200)}%"></div>
+              </div>
+              <span class="exp-type-count">${count} 篇</span>
+            </div>
+          `).join('') || '<div class="empty">暂无体验类型数据</div>'}
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ========== COMPETITIVE INSIGHTS (品牌词专用) ==========
+function renderCompetitiveInsights(notes) {
+  // 竞品提及分析
+  const competitorKeywords = {
+    '苹果': ['华为', '三星', '小米', 'OPPO', 'vivo', '荣耀'],
+    '华为': ['苹果', '三星', '小米', 'OPPO', 'vivo', '荣耀'],
+    '小米': ['华为', '苹果', 'OPPO', 'vivo', '荣耀', '红米'],
+    '耐克': ['阿迪', '阿迪达斯', '李宁', '安踏', '彪马', '新百伦'],
+    '阿迪': ['耐克', '李宁', '安踏', '彪马', '新百伦'],
+    '雅诗兰黛': ['兰蔻', 'SKII', '海蓝之谜', '资生堂', '娇兰', '迪奥'],
+    '兰蔻': ['雅诗兰黛', 'SKII', '海蓝之谜', '资生堂', '娇兰', '迪奥']
+  };
+  
+  // 检测当前搜索的品牌
+  let currentBrand = null;
+  const searchText = state.keywords.join(' ').toLowerCase();
+  for (const brand of Object.keys(competitorKeywords)) {
+    if (searchText.includes(brand.toLowerCase())) {
+      currentBrand = brand;
+      break;
+    }
+  }
+  
+  if (!currentBrand) return;
+  
+  const competitors = competitorKeywords[currentBrand] || [];
+  const compCounts = {};
+  
+  notes.forEach(n => {
+    const text = (n.title + ' ' + (n.desc || '')).toLowerCase();
+    competitors.forEach(comp => {
+      if (text.includes(comp.toLowerCase())) {
+        compCounts[comp] = (compCounts[comp] || 0) + 1;
+      }
+    });
+  });
+  
+  // 品牌口碑对比
+  let positiveCount = 0, negativeCount = 0;
+  const brandPosWords = ['好用', '推荐', '喜欢', '满意', '值得', '不错', '优秀', '棒', '爱', '完美'];
+  const brandNegWords = ['不好', '失望', '踩雷', '避雷', '差', '坑', '后悔', '不值', '垃圾', '烂'];
+  
+  notes.forEach(n => {
+    const text = (n.title + ' ' + (n.desc || '')).toLowerCase();
+    const hasPos = brandPosWords.some(w => text.includes(w));
+    const hasNeg = brandNegWords.some(w => text.includes(w));
+    if (hasPos) positiveCount++;
+    if (hasNeg) negativeCount++;
+  });
+  
+  // 更新竞品分析面板
+  const compPanel = document.getElementById('competitivePanel');
+  if (compPanel) {
+    compPanel.innerHTML = `
+      <div class="analysis-card">
+        <div class="card-title">🏆 竞品提及分析</div>
+        <div class="competitor-list">
+          ${Object.entries(compCounts).sort((a, b) => b[1] - a[1]).map(([comp, count]) => `
+            <div class="competitor-item">
+              <span class="competitor-name">${comp}</span>
+              <div class="competitor-bar">
+                <div class="competitor-fill" style="width: ${Math.min(100, count / notes.length * 150)}%"></div>
+              </div>
+              <span class="competitor-count">${count} 次</span>
+            </div>
+          `).join('') || '<div class="empty">暂无明显竞品提及</div>'}
+        </div>
+      </div>
+      <div class="analysis-card">
+        <div class="card-title">📊 品牌口碑概览</div>
+        <div class="brand-sentiment">
+          <div class="sentiment-stat">
+            <span class="sentiment-label">正面提及</span>
+            <span class="sentiment-val positive">${positiveCount} 篇 (${(positiveCount/notes.length*100).toFixed(1)}%)</span>
+          </div>
+          <div class="sentiment-stat">
+            <span class="sentiment-label">负面提及</span>
+            <span class="sentiment-val negative">${negativeCount} 篇 (${(negativeCount/notes.length*100).toFixed(1)}%)</span>
+          </div>
+          <div class="sentiment-stat">
+            <span class="sentiment-label">口碑指数</span>
+            <span class="sentiment-val ${positiveCount > negativeCount * 2 ? 'good' : positiveCount > negativeCount ? 'avg' : 'poor'}">
+              ${positiveCount + negativeCount > 0 ? (positiveCount / (positiveCount + negativeCount) * 100).toFixed(0) : 50} 分
+            </span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+
+
+// ========== NOTE DETAIL ==========
+function showDetail(id) {
+  const note = state.notes.find(n => n.id === id);
+  if (!note) return;
+  const engRate = note.likes > 0 ? ((note.collects + note.comments) / note.likes * 100).toFixed(1) : '0';
+  const ctr = note.likes > 0 ? (note.comments / note.likes * 100).toFixed(1) : '0';
+  const saveRate = note.likes > 0 ? (note.collects / note.likes * 100).toFixed(1) : '0';
+  const score = Math.min(100, Math.round((note.likes / 500 * 30) + (parseFloat(engRate) * 5) + (note.tags?.length * 2 || 0)));
+  const scoreClass = score >= 70 ? 'good' : score >= 40 ? 'avg' : 'poor';
+
+  document.getElementById('detailContent').innerHTML = `
+    <div class="detail-top">
+      <div class="detail-title">${escHtml(note.title)}</div>
+      <button class="detail-close" onclick="closeDetail()">×</button>
+    </div>
+    <div class="detail-stats">
+      <div class="detail-stat"><div class="detail-stat-val">${fmtNum(note.likes)}</div><div class="detail-stat-lbl">点赞</div></div>
+      <div class="detail-stat"><div class="detail-stat-val">${fmtNum(note.collects)}</div><div class="detail-stat-lbl">收藏</div></div>
+      <div class="detail-stat"><div class="detail-stat-val">${fmtNum(note.comments)}</div><div class="detail-stat-lbl">评论</div></div>
+      <div class="detail-stat"><div class="detail-stat-val">${engRate}%</div><div class="detail-stat-lbl">互动率</div></div>
+    </div>
+    <div class="detail-content">${escHtml(note.desc || '（笔记描述不可用）')}</div>
+    ${note.tags?.length ? `<div class="detail-tags">${note.tags.map(t=>`<span class="detail-tag">#${escHtml(t)}</span>`).join('')}</div>` : ''}
+    <p style="font-size:12px;color:var(--text-mute);">作者：${escHtml(note.author)} · 发布：${note.publishTime} · ${note.type === 'video' ? '视频笔记' : '图文笔记'}</p>
+    <a class="detail-link" href="${escHtml(note.url)}" target="_blank" rel="noopener" style="margin-top:10px;display:inline-flex;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      在小红书中查看原文
+    </a>
+    <div class="detail-analysis">
+      <h4>数据分析</h4>
+      <div class="analysis-metrics">
+        <div class="am-item">
+          <div class="am-label">内容质量分</div>
+          <div class="am-val ${scoreClass}">${score} 分</div>
+        </div>
+        <div class="am-item">
+          <div class="am-label">收藏率</div>
+          <div class="am-val ${parseFloat(saveRate)>=30?'good':parseFloat(saveRate)>=15?'avg':'poor'}">${saveRate}%</div>
+        </div>
+        <div class="am-item">
+          <div class="am-label">评论率</div>
+          <div class="am-val ${parseFloat(ctr)>=5?'good':parseFloat(ctr)>=2?'avg':'poor'}">${ctr}%</div>
+        </div>
+        <div class="am-item">
+          <div class="am-label">话题标签数</div>
+          <div class="am-val ${(note.tags?.length||0)>=5?'good':(note.tags?.length||0)>=3?'avg':'poor'}">${note.tags?.length || 0} 个</div>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('detailModal').classList.remove('hidden');
+}
+function closeDetail() {
+  document.getElementById('detailModal').classList.add('hidden');
+}
+
+// ========== EXPORT ==========
+function exportCSV() {
+  if (!state.notes.length) { toast('暂无数据可导出', 'warning'); return; }
+  const headers = ['排名', '标题', '作者', '点赞', '收藏', '评论', '互动率', '类型', '关键词', '发布时间', '链接'];
+  const rows = state.notes.map((n, i) => {
+    const engRate = n.likes > 0 ? ((n.collects + n.comments) / n.likes * 100).toFixed(1) : '0';
+    return [i+1, n.title, n.author, n.likes, n.collects, n.comments, `${engRate}%`, n.type, n.keyword, n.publishTime, n.url].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+  });
+  const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+  downloadFile(csv, `小红书数据_${state.keywords.join('_')}_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.csv`, 'text/csv;charset=utf-8');
+  toast('CSV 导出成功', 'success');
+}
+
+function exportJSON() {
+  if (!state.notes.length) { toast('暂无数据可导出', 'warning'); return; }
+  const data = { keywords: state.keywords, days: state.days, exportTime: new Date().toISOString(), count: state.notes.length, notes: state.notes };
+  downloadFile(JSON.stringify(data, null, 2), `小红书数据_${state.keywords.join('_')}.json`, 'application/json');
+  toast('JSON 导出成功', 'success');
+}
+
+function downloadFile(content, name, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function printReport() {
+  window.print();
+}
+
+// ========== MODAL ==========
+function closeMcpModal() { document.getElementById('mcpModal').classList.add('hidden'); }
+
+// ========== TOAST ==========
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ========== UTILS ==========
+function fmtNum(n) {
+  if (n >= 10000) return (n / 10000).toFixed(1) + 'w';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+  return String(n);
+}
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ========== DEBUG ==========
+function showDebug(data) {
+  const panel = document.getElementById('debugPanel');
+  const content = document.getElementById('debugContent');
+  if (panel && content) {
+    panel.style.display = 'block';
+    content.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    content.style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>
