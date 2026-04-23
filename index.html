@@ -1307,7 +1307,7 @@ demand-pain-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; marg
         <h3>🕐 发布时段热力图</h3>
         <div class="chart-container"><canvas id="chartTimeHeat"></canvas></div>
       </div>
-      <div class="chart-card">
+      <div class="chart-card" id="wordcloudCard">
         <h3>🏷️ 热门标签词云</h3>
         <div class="wordcloud-wrap">
           <canvas class="wordcloud-canvas" id="wordcloudCanvas"></canvas>
@@ -2353,9 +2353,14 @@ function renderWordCloud(feeds) {
     .slice(0, 20);
 
   if (tags.length === 0) {
-    wrap.innerHTML = '<div class="no-data">未提取到标签</div><canvas class="wordcloud-canvas" id="wordcloudCanvas"></canvas>';
+    const card = document.getElementById('wordcloudCard');
+    if (card) card.style.display = 'none';
     return;
   }
+
+  // 有数据时确保卡片可见
+  const card = document.getElementById('wordcloudCard');
+  if (card) card.style.display = '';
 
   const maxCount = tags[0][1];
   const minCount = tags[tags.length - 1][1];
